@@ -14,8 +14,11 @@ firmware/.dummy/
 firmware/.claude/
 firmware-tests/
 
-# Secrets and original factory dumps — never publish
+# Secrets and original factory dumps - never publish
 backups/
+
+# Local session notes only
+HANDOVER.md
 
 # Build noise
 *.log
