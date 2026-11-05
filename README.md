@@ -2,6 +2,8 @@
 
 **One handheld. Two LR1121 radios. One mesh that does not have to pick a single personality.**
 
+![RadioMaster Nomad running Meshtastic 2.8.3, BLE-connected as Meshtastic_4434](docs/nomad-ble-connected.png)
+
 RadioMaster Nomad was born as an ExpressLRS radio. This tree turns the main ESP32 into an experimental **dual-radio Meshtastic node**: Radio A and Radio B on independent LoRa / LoRa 2.4 / FSK front-ends, with a local RF gate, a cooling fan, and a two-pixel status light.
 
 This is bring-up firmware. It boots. Both radios initialize. USB and BLE talk. The interesting work — true dual-channel operation the phone app can actually use — is still ahead.
