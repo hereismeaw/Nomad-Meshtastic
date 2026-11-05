@@ -56,7 +56,7 @@ A node like that can listen on two meshes at once, originate on a chosen radio, 
 
 - **RF TX is inhibited.** There is no shipped conducted-power calibration table. Region stays `UNSET` until you set a legal country.
 - Simultaneous two-network RX/TX, ACK exchanges, and PDR have not been measured on a bench.
-- Optical LED and fan behavior are implemented; treat physical confirmation as still in progress.
+- RGB LEDs are coded (GPIO22, two pixels) but **not fully working** on the hardware. See `HANDOVER.md`. Fan GPIO is implemented; physical confirmation still pending.
 - Stock Meshtastic Android / iOS / Web still look like a **single** radio.
 
 Do not transmit at 30 dBm, or at all, until you have a region, a calibration, and a legal allocation.
@@ -109,6 +109,7 @@ variants/.../radiomaster_nomad/
 artifacts/radiomaster-nomad/   Flashable images (no ELF objects)
 install-nomad.ps1         Backup-first Windows flasher
 nomad_calibration.py      PA table helper
+HANDOVER.md               Session handoff, including incomplete LEDs
 NOMAD-IMPLEMENTATION.md   Bring-up evidence and limits
 ExpressLRS/  targets/     Hardware context from the original radio
 ```
@@ -159,6 +160,8 @@ GPIO12 is fan / RF gate. It does not enter pairing mode.
 ---
 
 ## Status lights
+
+Intended patterns below. On the current unit the RGB strip is **not fully working** - see `HANDOVER.md`.
 
 | Pattern | Meaning |
 | --- | --- |
