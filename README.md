@@ -29,7 +29,7 @@ A node like that can listen on two meshes at once, originate on a chosen radio, 
 
 | Piece | Notes |
 | --- | --- |
-| MCU | ESP32-PICO-D4, 4 MB flash (USB serial, typically `COM3` on Windows) |
+| MCU | ESP32-PICO-D4, 4 MB flash |
 | Radios | Dual Semtech **LR1121** |
 | Default presets (this build) | A = `LONG_FAST`, B = `MEDIUM_FAST` |
 | User button | GPIO14 - stock Meshtastic button |
