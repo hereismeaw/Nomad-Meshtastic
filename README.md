@@ -6,7 +6,7 @@
 
 RadioMaster Nomad was born as an ExpressLRS radio. This tree turns the main ESP32 into an experimental **dual-radio Meshtastic node**: Radio A and Radio B on independent LoRa / LoRa 2.4 / FSK front-ends, with a local RF gate, a cooling fan, and a two-pixel status light.
 
-This is bring-up firmware. It boots. Both radios initialize. USB and BLE talk. The interesting work — true dual-channel operation the phone app can actually use — is still ahead.
+This is bring-up firmware. It boots. Both radios initialize. USB and BLE talk. The interesting work - true dual-channel operation the phone app can actually use - is still ahead.
 
 ---
 
@@ -18,8 +18,8 @@ The long-term shape:
 
 | Radio | Role (example) |
 | --- | --- |
-| A | `LONG_FAST` — range, slow, the neighborhood backbone |
-| B | `SHORT_TURBO` (or another modem preset) — nearby, snappy, high rate |
+| A | `LONG_FAST` - range, slow, the neighborhood backbone |
+| B | `SHORT_TURBO` (or another modem preset) - nearby, snappy, high rate |
 
 A node like that can listen on two meshes at once, originate on a chosen radio, and keep ACK affinity on the radio that heard the peer. The firmware in this repo is the first cut of that policy. The stock Meshtastic apps still present a single radio. That is the next mountain.
 
@@ -32,10 +32,10 @@ A node like that can listen on two meshes at once, originate on a chosen radio, 
 | MCU | ESP32-PICO-D4, 4 MB flash (USB serial, typically `COM3` on Windows) |
 | Radios | Dual Semtech **LR1121** |
 | Default presets (this build) | A = `LONG_FAST`, B = `MEDIUM_FAST` |
-| User button | GPIO14 — stock Meshtastic button |
-| Aux button | GPIO12 — short: fan AUTO → ON → OFF; hold 3 s: local RF gate |
-| Fan | GPIO2 — spins before a permitted TX, 60 s after TX; cooling overrides manual OFF |
-| RGB | GPIO22, two pixels — A / B activity, blue blink while BLE pairing |
+| User button | GPIO14 - stock Meshtastic button |
+| Aux button | GPIO12 - short: fan AUTO → ON → OFF; hold 3 s: local RF gate |
+| Fan | GPIO2 - spins before a permitted TX, 60 s after TX; cooling overrides manual OFF |
+| RGB | GPIO22, two pixels - A / B activity, blue blink while BLE pairing |
 | BLE name | `Meshtastic_4434` (device-derived suffix) |
 | Pairing PIN | **123456** (fixed; Nomad has no screen) |
 | C3 backpack | Present on the board; **not** a Meshtastic transport and **not** flashed by the installer |
@@ -179,6 +179,6 @@ RadioMaster, ExpressLRS, and Meshtastic are trademarks of their owners. This pro
 
 ## Credits
 
-- [Meshtastic firmware](https://github.com/meshtastic/firmware) — the stack this forks in-tree
+- [Meshtastic firmware](https://github.com/meshtastic/firmware) - the stack this forks in-tree
 - RadioMaster Nomad hardware
 - Bring-up target `radiomaster-nomad` on ESP32-PICO-D4 + dual LR1121
