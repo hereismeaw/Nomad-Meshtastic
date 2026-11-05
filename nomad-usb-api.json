@@ -1,0 +1,9 @@
+{
+  "transport": "Meshtastic Serial API",
+  "node_id": "!df154434",
+  "firmware_version": "2.8.3.9bcf0f7",
+  "hardware_model": 255,
+  "region_code": 0,
+  "primary_modem_preset": 0,
+  "bluetooth_enabled": true
+}

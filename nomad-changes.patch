@@ -1,0 +1,1587 @@
+diff --git a/src/main.cpp b/src/main.cpp
+index fff0290..46f2a67 100644
+--- a/src/main.cpp
++++ b/src/main.cpp
+@@ -372,6 +372,10 @@ void setup()
+ 
+     // initialize power HAL layer as early as possible
+     powerHAL_init();
++#ifdef RADIOMASTER_NOMAD
++    extern void nomadEarlyInit();
++    nomadEarlyInit();
++#endif
+ 
+ #ifdef LED_POWER
+     pinMode(LED_POWER, OUTPUT);
+diff --git a/src/mesh/Channels.cpp b/src/mesh/Channels.cpp
+index 3713a6f..08e3bd1 100644
+--- a/src/mesh/Channels.cpp
++++ b/src/mesh/Channels.cpp
+@@ -558,9 +558,13 @@ bool Channels::hasDefaultChannel()
+  *
+  * @return false if the channel hash or channel is invalid
+  */
+-bool Channels::decryptForHash(ChannelIndex chIndex, ChannelHash channelHash)
++bool Channels::decryptForHash(ChannelIndex chIndex, ChannelHash channelHash, const char *defaultName)
+ {
+-    if (chIndex >= getNumChannels() || getHash(chIndex) != channelHash) {
++    if (chIndex >= getNumChannels())
++        return false;
++    const auto &channel = getByIndex(chIndex);
++    const int16_t expectedHash = defaultName && channel.settings.name[0] == 0 ? hashFor(chIndex, defaultName) : getHash(chIndex);
++    if (expectedHash != channelHash) {
+         // LOG_DEBUG("Skip channel %d (hash %x) due to invalid hash/index, want=%x", chIndex, getHash(chIndex),
+         // channelHash);
+         return false;
+diff --git a/src/mesh/Channels.h b/src/mesh/Channels.h
+index 58b8e48..ac15183 100644
+--- a/src/mesh/Channels.h
++++ b/src/mesh/Channels.h
+@@ -77,7 +77,7 @@ class Channels
+      *
+      * @return false if the channel hash or channel is invalid
+      */
+-    bool decryptForHash(ChannelIndex chIndex, ChannelHash channelHash);
++    bool decryptForHash(ChannelIndex chIndex, ChannelHash channelHash, const char *defaultName = nullptr);
+ 
+     /** Given a channel index setup crypto for encoding that channel (or the primary channel if that channel is unsecured)
+      *
+diff --git a/src/mesh/LR11x0Interface.cpp b/src/mesh/LR11x0Interface.cpp
+index 43f6e52..3271746 100644
+--- a/src/mesh/LR11x0Interface.cpp
++++ b/src/mesh/LR11x0Interface.cpp
+@@ -128,7 +128,7 @@ template <typename T> bool LR11x0Interface<T>::init()
+ 
+     RadioLibInterface::init();
+ 
+-    if (config.lora.region == meshtastic_Config_LoRaConfig_RegionCode_LORA_24) { // clamp if wide freq range
++    if (this->modemConfig().region == meshtastic_Config_LoRaConfig_RegionCode_LORA_24) { // clamp if wide freq range
+         limitPower(LR1120_MAX_POWER);
+     } else {
+         limitPower(LR1110_MAX_POWER); // default clamp for non-wide freq range
+@@ -290,7 +290,7 @@ template <typename T> bool LR11x0Interface<T>::init()
+ #endif
+ 
+     if (res == RADIOLIB_ERR_NONE) {
+-        if (config.lora.sx126x_rx_boosted_gain) { // the name is unfortunate but historically accurate
++        if (this->modemConfig().sx126x_rx_boosted_gain) { // the name is unfortunate but historically accurate
+             res = lora.setRxBoostedGainMode(true);
+             LOG_INFO("Set RX gain to boosted mode; result: %d", res);
+         } else {
+@@ -345,7 +345,7 @@ template <typename T> int16_t LR11x0Interface<T>::programModemParams()
+         return err;
+     }
+ 
+-    if (config.lora.region == meshtastic_Config_LoRaConfig_RegionCode_LORA_24) { // clamp if wide freq range
++    if (this->modemConfig().region == meshtastic_Config_LoRaConfig_RegionCode_LORA_24) { // clamp if wide freq range
+         limitPower(LR1120_MAX_POWER);
+     } else {
+         limitPower(LR1110_MAX_POWER); // default clamp for non-wide freq range
+@@ -370,7 +370,7 @@ template <typename T> int16_t LR11x0Interface<T>::programModemParams()
+     }
+ 
+     // Apply RX gain mode - valid in STDBY, matches resetAGC() pattern
+-    err = lora.setRxBoostedGainMode(config.lora.sx126x_rx_boosted_gain);
++    err = lora.setRxBoostedGainMode(this->modemConfig().sx126x_rx_boosted_gain);
+     if (err != RADIOLIB_ERR_NONE)
+         LOG_WARN("LR11x0 setRxBoostedGainMode %s%d", radioLibErr, err);
+ 
+@@ -381,7 +381,7 @@ template <typename T> bool LR11x0Interface<T>::reinitChip()
+ {
+     // Clamp here, not just in programModemParams(): applyModemConfig() resets `power` to the raw
+     // config value, and the recovery path reaches begin() without passing through the params clamp
+-    if (config.lora.region == meshtastic_Config_LoRaConfig_RegionCode_LORA_24) { // clamp if wide freq range
++    if (this->modemConfig().region == meshtastic_Config_LoRaConfig_RegionCode_LORA_24) { // clamp if wide freq range
+         limitPower(LR1120_MAX_POWER);
+     } else {
+         limitPower(LR1110_MAX_POWER); // default clamp for non-wide freq range
+@@ -767,7 +767,7 @@ template <typename T> bool LR11x0Interface<T>::resetAGC()
+     lora.calibrateImageRejection(getFreq() - 4.0f, getFreq() + 4.0f);
+ 
+     // 5. Re-apply RX boosted gain mode
+-    lora.setRxBoostedGainMode(config.lora.sx126x_rx_boosted_gain);
++    lora.setRxBoostedGainMode(this->modemConfig().sx126x_rx_boosted_gain);
+ 
+     // 6. Resume receiving
+     startReceive();
+diff --git a/src/mesh/MeshModule.h b/src/mesh/MeshModule.h
+index fc33793..838e75b 100644
+--- a/src/mesh/MeshModule.h
++++ b/src/mesh/MeshModule.h
+@@ -65,6 +65,7 @@ class MeshModule
+     static std::vector<MeshModule *> *modules;
+ 
+   public:
++    static const meshtastic_MeshPacket *getCurrentRequest() { return currentRequest; }
+     /** Constructor
+      * name is for debugging output
+      */
+diff --git a/src/mesh/NextHopRouter.cpp b/src/mesh/NextHopRouter.cpp
+index 2c5ee8d..e144b17 100644
+--- a/src/mesh/NextHopRouter.cpp
++++ b/src/mesh/NextHopRouter.cpp
+@@ -1,4 +1,7 @@
+ #include "NextHopRouter.h"
++#ifdef RADIOMASTER_NOMAD
++#include "NomadDualRadio.h"
++#endif
+ #include "Default.h"
+ #include "MeshTypes.h"
+ #include "Throttle.h"
+@@ -440,6 +443,9 @@ PendingPacket *NextHopRouter::startRetransmission(meshtastic_MeshPacket *p, uint
+ {
+     auto id = GlobalPacketId(p);
+     auto rec = PendingPacket(p, numReTx);
++#ifdef RADIOMASTER_NOMAD
++    rec.radio = nomadPacketOrigin(p);
++#endif
+ 
+     stopRetransmission(getFrom(p), p->id);
+ 
+@@ -464,6 +470,13 @@ int32_t NextHopRouter::doRetransmissions()
+     for (auto it = pending.begin(), nextIt = it; it != pending.end(); it = nextIt) {
+         ++nextIt; // we use this odd pattern because we might be deleting it...
+         auto &p = it->second;
++#ifdef RADIOMASTER_NOMAD
++        if (!nomadRestoreTransmitOrigin(p.packet, p.radio)) {
++            LOG_WARN("Nomad retransmission dropped: missing PHY origin");
++            stopRetransmission(it->first);
++            continue;
++        }
++#endif
+ 
+         bool stillValid = true; // assume we'll keep this record around
+ 
+@@ -563,6 +576,9 @@ int32_t NextHopRouter::doRetransmissions()
+ 
+ void NextHopRouter::setNextTx(PendingPacket *pending)
+ {
++#ifdef RADIOMASTER_NOMAD
++    nomadRestoreTransmitOrigin(pending->packet, pending->radio);
++#endif
+     assert(iface);
+     auto d = iface->getRetransmissionMsec(pending->packet);
+     pending->nextTxMsec = Time::getMillis() + d;
+diff --git a/src/mesh/NextHopRouter.h b/src/mesh/NextHopRouter.h
+index fdd3e78..62a435d 100644
+--- a/src/mesh/NextHopRouter.h
++++ b/src/mesh/NextHopRouter.h
+@@ -33,6 +33,9 @@ struct GlobalPacketId {
+  */
+ struct PendingPacket {
+     meshtastic_MeshPacket *packet;
++#ifdef RADIOMASTER_NOMAD
++    int8_t radio = -1;
++#endif
+ 
+     /** The next time we should try to retransmit this packet */
+     uint32_t nextTxMsec = 0;
+diff --git a/src/mesh/NomadDualRadio.cpp b/src/mesh/NomadDualRadio.cpp
+new file mode 100644
+index 0000000..fabdd95
+--- /dev/null
++++ b/src/mesh/NomadDualRadio.cpp
+@@ -0,0 +1,603 @@
++#include "configuration.h"
++#ifdef RADIOMASTER_NOMAD
++#include "BluetoothStatus.h"
++#include "Channels.h"
++#include "DisplayFormatters.h"
++#include "MeshModule.h"
++#include "NodeDB.h"
++#include "NomadDualRadio.h"
++#include "Throttle.h"
++#include "UptimeClock.h"
++#include <Preferences.h>
++
++static NomadDualRadioManager *manager;
++static nomad::RfGate rfGate;
++
++int nomadPacketOrigin(const meshtastic_MeshPacket *p)
++{
++    return manager ? manager->packetOrigin(p) : -1;
++}
++
++bool nomadRestoreTransmitOrigin(const meshtastic_MeshPacket *p, int radio)
++{
++    return manager && manager->restoreTransmitOrigin(p, radio);
++}
++
++bool NomadDualRadioManager::restoreTransmitOrigin(const meshtastic_MeshPacket *p, int radio)
++{
++    return radio >= 0 && radio < 2 && dispatcher.sent(getFrom(p), p->id, radio, Time::getMillis());
++}
++
++bool nomadSameRadio(const meshtastic_MeshPacket *a, const meshtastic_MeshPacket *b)
++{
++    if (!manager)
++        return false;
++    const int origin = manager->packetOrigin(a);
++    return origin >= 0 && origin == manager->packetOrigin(b);
++}
++
++bool nomadAcceptResponse(const meshtastic_MeshPacket *p)
++{
++    return manager && manager->acceptResponse(p);
++}
++
++int NomadDualRadioManager::packetOrigin(const meshtastic_MeshPacket *p)
++{
++    const auto now = Time::getMillis();
++    return dispatcher.find(getFrom(p), p->id, now);
++}
++
++bool NomadDualRadioManager::acceptResponse(const meshtastic_MeshPacket *p)
++{
++    if (p->which_payload_variant != meshtastic_MeshPacket_decoded_tag || !p->decoded.request_id)
++        return true;
++    const auto now = Time::getMillis();
++    return dispatcher.responseAllowed(p->to, p->decoded.request_id, p->from, p->id, isToUs(p), now);
++}
++
++RadioTxHook::PreTxAction NomadRadioScheduler::beforeTransmit(RadioInterface *iface, meshtastic_MeshPacket *)
++{
++    for (uint8_t i = 0; i < 2; ++i)
++        if (iface == RadioLibInterface::nomadInstances[i]) {
++            auto other = RadioLibInterface::nomadInstances[1 - i];
++            if (!rfGate.isEnabled() || (other && other->isSending()))
++                return PRETX_DEFER;
++        }
++    return PRETX_SEND;
++}
++
++void nomadPrepareTransmit(const meshtastic_MeshPacket *p)
++{
++    if (manager)
++        manager->prepareTransmit(p);
++}
++
++void NomadDualRadioManager::prepareTransmit(const meshtastic_MeshPacket *p)
++{
++    const auto now = Time::getMillis();
++    if (packetOrigin(p) >= 0 || !isFromUs(p))
++        return;
++    int origin = -1;
++    const bool response = p->which_payload_variant == meshtastic_MeshPacket_decoded_tag && p->decoded.request_id;
++    if (response)
++        origin = dispatcher.find(p->to, p->decoded.request_id, now);
++    const auto request = MeshModule::getCurrentRequest();
++    if (origin < 0 && request && (!response || request->id == p->decoded.request_id))
++        origin = dispatcher.find(request->from, request->id, now);
++    if (origin < 0 && response)
++        return;
++    if (origin < 0 && primary())
++        origin = primary()->nomadIndex;
++    if (origin >= 0)
++        dispatcher.sent(getFrom(p), p->id, origin, now);
++}
++
++bool nomadLabEnabled()
++{
++#ifdef NOMAD_RF_LAB
++    return rfGate.isEnabled();
++#else
++    return false;
++#endif
++}
++
++void NomadRadioContext::limitPower(int8_t maximum)
++{
++    RadioInterface::limitPower(maximum);
++    int8_t target = localConfig.tx_power;
++#ifdef NOMAD_RF_LAB
++    target = settings.targetDbm ? settings.targetDbm : 30;
++#endif
++    calibration = nullptr;
++    const auto frequencyKhz = uint32_t(getFreq() * 1000.0f + 0.5f);
++    for (const auto &step : NOMAD_MEASURED_STEPS)
++        if (nomad::validCalibration(step, nomadIndex, frequencyKhz, target)) {
++            calibration = &step;
++            power = step.driveDbm;
++            break;
++        }
++    if (!calibration)
++        power = -17;
++}
++
++void NomadRadioContext::configHardwareForSend()
++{
++    if (rfGate.allows(calibration != nullptr)) {
++        dacWrite(NOMAD_APC2_PIN, calibration->dac);
++        digitalWrite(NOMAD_FAN_PIN, HIGH);
++        if (manager)
++            manager->transmitting();
++    }
++    LR1121Interface::configHardwareForSend();
++}
++
++int16_t NomadRadioContext::launchTransmit(size_t numbytes)
++{
++    auto other = nomadInstances[1 - nomadIndex];
++    if (!rfGate.allows(calibration != nullptr) || (other && other->isSending()))
++        return RADIOLIB_ERR_INVALID_OUTPUT_POWER;
++    return LR1121Interface::launchTransmit(numbytes);
++}
++const char *nomadPacketPresetName(const meshtastic_MeshPacket *p)
++{
++    return manager ? manager->packetPresetName(p) : nullptr;
++}
++const char *NomadDualRadioManager::packetPresetName(const meshtastic_MeshPacket *p)
++{
++    const int origin = packetOrigin(p);
++    return origin < 0 ? nullptr : radios[origin]->presetName();
++}
++
++bool nomadReceived(uint8_t index, const meshtastic_MeshPacket *p)
++{
++    return manager && manager->received(index, p);
++}
++
++void nomadEarlyInit()
++{
++    for (int reset : {15, 21}) {
++        digitalWrite(reset, LOW);
++        pinMode(reset, OUTPUT);
++    }
++    digitalWrite(NOMAD_FAN_PIN, LOW);
++    pinMode(NOMAD_FAN_PIN, OUTPUT);
++    // APC2 is an analogue bias, not a verified PA shutdown signal. TX stays
++    // software inhibited.
++    dacWrite(NOMAD_APC2_PIN, 120);
++    pinMode(NOMAD_BUTTON_B, INPUT_PULLUP);
++    for (int cs : {27, 13}) {
++        digitalWrite(cs, HIGH);
++        pinMode(cs, OUTPUT);
++    }
++}
++
++NomadRadioContext::NomadRadioContext(LockingArduinoHal *hal, uint8_t index)
++    : LR1121Interface(hal, index ? 13 : 27, index ? 34 : 37, index ? 21 : 15, index ? 39 : 36)
++{
++    settings.preset =
++        index ? meshtastic_Config_LoRaConfig_ModemPreset_MEDIUM_FAST : meshtastic_Config_LoRaConfig_ModemPreset_LONG_FAST;
++#ifdef NOMAD_RF_LAB
++    settings.targetDbm = 30;
++#endif
++    Preferences prefs;
++    if (prefs.begin(index ? "nomad-b-v1" : "nomad-a-v1", true)) {
++        if (prefs.getBytesLength("settings") == sizeof(settings)) {
++            NomadRadioSettings saved;
++            if (prefs.getBytes("settings", &saved, sizeof(saved)) == sizeof(saved) && saved.version == 1 &&
++                saved.preset >= _meshtastic_Config_LoRaConfig_ModemPreset_MIN &&
++                saved.preset <= _meshtastic_Config_LoRaConfig_ModemPreset_MAX && saved.targetDbm >= -20 && saved.targetDbm <= 30)
++                settings = saved;
++        }
++        prefs.end();
++    }
++}
++
++meshtastic_Config_LoRaConfig &NomadRadioContext::modemConfig()
++{
++    return localConfig;
++}
++
++void NomadRadioContext::prepareConfig()
++{
++    localConfig = config.lora;
++    localConfig.use_preset = true;
++    localConfig.modem_preset = settings.preset;
++    localConfig.channel_num = settings.slot;
++    localConfig.override_frequency = 0;
++    localConfig.coding_rate = 0;
++    localConfig.tx_enabled = localConfig.tx_enabled && settings.txAllowed;
++    if (settings.targetDbm)
++        localConfig.tx_power = settings.targetDbm;
++}
++
++bool NomadRadioContext::reconfigure()
++{
++    disabled = false;
++    rfGate.setLocalEnable(false);
++    prepareConfig();
++    if (!settings.enabled || (settings.slot && settings.slot > frequencySlotCount(localConfig))) {
++        healthy = false;
++        sleep();
++        return false;
++    }
++    const bool configured = LR1121Interface::reconfigure();
++    logVersion();
++    healthy = configured && localConfig.modem_preset == settings.preset;
++    if (configured && !healthy)
++        sleep();
++    return healthy;
++}
++
++bool NomadRadioContext::init()
++{
++    disabled = false;
++    if (initializationAttempted)
++        return reconfigure();
++    prepareConfig();
++    if (!settings.enabled || (settings.slot && settings.slot > frequencySlotCount(localConfig)))
++        return false;
++    initializationAttempted = true;
++    const bool initialized = LR1121Interface::init();
++    logVersion();
++    if (initialized && localConfig.modem_preset != settings.preset)
++        sleep();
++    return initialized && localConfig.modem_preset == settings.preset;
++}
++
++void NomadRadioContext::logVersion()
++{
++    LR11x0VersionInfo_t version{};
++    const int status = lora.getVersionInfo(&version);
++    LOG_INFO("Nomad %c version status=%d device=%u hw=%u fw=%u.%u BUSY=%d RESET=%d", 'A' + nomadIndex, status, version.device,
++             version.hardware, version.fwMajor, version.fwMinor, digitalRead(nomadIndex ? 39 : 36),
++             digitalRead(nomadIndex ? 21 : 15));
++}
++
++const char *NomadRadioContext::presetName() const
++{
++    return DisplayFormatters::getModemPresetDisplayName(settings.preset, false, true);
++}
++
++const char *NomadRadioContext::modemChannelName()
++{
++    const auto &channel = channels.getByIndex(channels.getPrimaryIndex());
++    if (channel.settings.name[0])
++        return channel.settings.name;
++    // Unnamed stock channels hash their PHY preset name on unmodified Meshtastic
++    // peers.
++    return presetName();
++}
++
++bool NomadRadioContext::canSendImmediately()
++{
++    auto other = nomadInstances[1 - nomadIndex];
++    return rfGate.allows(calibration != nullptr) && (!other || !other->isSending()) && LR1121Interface::canSendImmediately();
++}
++
++ErrorCode NomadRadioContext::send(meshtastic_MeshPacket *p)
++{
++    if (!settings.enabled || !settings.txAllowed || !rfGate.allows(calibration != nullptr)) {
++        packetPool.release(p);
++        return ERRNO_DISABLED;
++    }
++    return LR1121Interface::send(p);
++}
++
++NomadDualRadioManager::NomadDualRadioManager(LockingArduinoHal *hal) : OSThread("NomadIO", 25)
++{
++    manager = this;
++    radios[0] = std::make_unique<NomadRadioContext>(hal, 0);
++    radios[1] = std::make_unique<NomadRadioContext>(hal, 1);
++    pixels.begin();
++    pixels.clear();
++    pixels.show();
++    Preferences prefs;
++    if (prefs.begin("nomad-v1", false)) {
++        fanMode = prefs.getUChar("fan", 0);
++        operatingMode = prefs.getUChar("mode", 2);
++        if (operatingMode > 2)
++            operatingMode = 2;
++        if (fanMode > 2)
++            fanMode = 0;
++#ifdef NOMAD_RF_LAB
++        prefs.putChar("target-a", 30);
++        prefs.putChar("target-b", 30);
++#endif
++        prefs.end();
++    }
++}
++
++NomadRadioContext *NomadDualRadioManager::primary() const
++{
++    for (auto &radio : radios)
++        if (radio->healthy && radio->settings.enabled)
++            return radio.get();
++    return nullptr;
++}
++
++NomadDualRadioManager::~NomadDualRadioManager()
++{
++    rfGate.setLocalEnable(false);
++    if (manager == this)
++        manager = nullptr;
++    for (auto &radio : radios)
++        radio->disableInterrupt();
++}
++
++bool NomadDualRadioManager::init()
++{
++    for (auto &radio : radios) {
++        if (operatingMode < 2 && radio->nomadIndex != operatingMode)
++            continue;
++        radio->healthy = radio->init();
++        LOG_INFO("Nomad radio %c: %s, RX only pending conducted PA calibration", 'A' + radio->nomadIndex,
++                 radio->healthy ? "detected" : "failed");
++    }
++    for (auto &radio : radios)
++        if (!radio->healthy && radio->settings.enabled && (operatingMode == 2 || operatingMode == radio->nomadIndex)) {
++            radio->healthy = radio->init();
++            LOG_INFO("Nomad radio %c bounded startup retry: %s", 'A' + radio->nomadIndex,
++                     radio->healthy ? "recovered" : "failed");
++        }
++    RadioLibInterface::instance = primary();
++    return primary() != nullptr;
++}
++
++bool NomadDualRadioManager::received(uint8_t index, const meshtastic_MeshPacket *p)
++{
++    return dispatcher.receive(p->from, p->id, index, Time::getMillis());
++}
++
++void NomadDualRadioManager::transmitting()
++{
++    lastTx = Time::skipZero(Time::getMillis());
++    fanRunning = true;
++}
++
++bool NomadDualRadioManager::reconfigure()
++{
++    bool ok = false;
++    for (auto &radio : radios)
++        if (radio->healthy)
++            ok |= radio->reconfigure();
++    return ok;
++}
++
++int32_t NomadDualRadioManager::runOnce()
++{
++    const uint32_t now = Time::getMillis();
++    const bool pairing =
++        bluetoothStatus && bluetoothStatus->getConnectionState() == meshtastic::BluetoothStatus::ConnectionState::PAIRING;
++    bool transmitting = false;
++    for (uint8_t i = 0; i < 2; ++i) {
++        auto &radio = radios[i];
++        if (radio->healthy && !radio->statistics().healthy)
++            radio->healthy = false;
++        uint32_t color = 0;
++        if (!radio->healthy) {
++            color = 0x200000;
++        } else {
++            radio->pollMissedIrqs();
++            if (radio->rxGood != rxCounts[i] || radio->rxBad != badCounts[i]) {
++                activityMs[i] = now;
++                color = radio->rxBad != badCounts[i] ? 0x200000 : 0x002000;
++                rxCounts[i] = radio->rxGood;
++                badCounts[i] = radio->rxBad;
++            } else if (activityMs[i] && Throttle::isWithinTimespanMs(activityMs[i], 150)) {
++                color = pixels.getPixelColor(i);
++            }
++            if (radio->isSending()) {
++                color = 0x200000;
++                transmitting = true;
++            }
++        }
++        if (pairing)
++            color = (now / 250) % 2 ? 0x000020 : 0;
++        pixels.setPixelColor(i, color);
++    }
++    pixels.show();
++    RadioLibInterface::instance = primary();
++    if (transmitting)
++        lastTx = Time::skipZero(now);
++    const bool pressed = digitalRead(NOMAD_BUTTON_B) == LOW;
++    if (pressed && !buttonDown) {
++        buttonStart = now;
++        longPressHandled = false;
++    }
++    if (pressed && !longPressHandled && Throttle::hasElapsed(buttonStart, 3000)) {
++        rfGate.setLocalEnable(!rfGate.isEnabled());
++        longPressHandled = true;
++        LOG_WARN("Nomad local RF gate %s; only measured calibration steps can transmit",
++                 rfGate.isEnabled() ? "enabled" : "disabled");
++    }
++    if (!pressed && buttonDown && !longPressHandled && Throttle::hasElapsed(buttonStart, 50)) {
++        fanMode = (fanMode + 1) % 3;
++        Preferences prefs;
++        if (prefs.begin("nomad-v1", false)) {
++            prefs.putUChar("fan", fanMode);
++            prefs.end();
++        }
++        LOG_INFO("Nomad fan mode: %s", fanMode == 0 ? "AUTO" : fanMode == 1 ? "ON" : "OFF");
++    }
++    buttonDown = pressed;
++    const bool fan = nomad::fanRequired(fanMode, transmitting, lastTx != 0, uint32_t(now - lastTx));
++    if (fan != fanRunning) {
++        digitalWrite(NOMAD_FAN_PIN, fan ? HIGH : LOW);
++        fanRunning = fan;
++    }
++    if (Throttle::hasElapsed(lastMaintenance, AGC_RESET_INTERVAL_MS)) {
++        lastMaintenance = now;
++        for (auto &radio : radios)
++            if (radio->healthy && radio.get() != RadioLibInterface::instance) {
++                radio->updateNoiseFloor();
++                radio->periodicRadioMaintenance();
++            }
++    }
++    return 25;
++}
++
++ErrorCode NomadDualRadioManager::send(meshtastic_MeshPacket *p)
++{
++    const uint32_t now = Time::getMillis();
++    int origin = packetOrigin(p);
++    if (origin < 0 && p->which_payload_variant == meshtastic_MeshPacket_decoded_tag && p->decoded.request_id)
++        origin = dispatcher.find(p->to, p->decoded.request_id, now);
++    if (origin >= 0) {
++        if (radios[origin]->healthy) {
++            dispatcher.sent(getFrom(p), p->id, origin, now);
++            return radios[origin]->send(p);
++        }
++        packetPool.release(p);
++        return ERRNO_DISABLED;
++    }
++    packetPool.release(p);
++    return ERRNO_DISABLED;
++}
++uint32_t NomadDualRadioManager::getPacketTime(uint32_t length, bool received)
++{
++    return primary() ? static_cast<RadioInterface *>(primary())->getPacketTime(length, received) : 0;
++}
++
++NomadRadioContext *NomadDualRadioManager::contextForPacket(const meshtastic_MeshPacket *p)
++{
++    const int origin = packetOrigin(p);
++    return origin < 0 ? primary() : radios[origin].get();
++}
++
++uint32_t NomadDualRadioManager::getPacketTime(const meshtastic_MeshPacket *p, bool received)
++{
++    RadioInterface *radio = contextForPacket(p);
++    return radio ? radio->getPacketTime(p, received) : 0;
++}
++
++uint32_t NomadDualRadioManager::getRetransmissionMsec(const meshtastic_MeshPacket *p)
++{
++    auto radio = contextForPacket(p);
++    return radio ? radio->getRetransmissionMsec(p) : 0;
++}
++float NomadDualRadioManager::getFreq()
++{
++    return primary() ? primary()->getFreq() : 0;
++}
++meshtastic_QueueStatus NomadDualRadioManager::getQueueStatus()
++{
++    return primary() ? static_cast<RadioInterface *>(primary())->getQueueStatus() : meshtastic_QueueStatus{};
++}
++bool NomadDualRadioManager::canSleep(bool deepSleep)
++{
++    for (auto &radio : radios)
++        if (radio->healthy && !radio->canSleep(deepSleep))
++            return false;
++    return true;
++}
++bool NomadDualRadioManager::sleep()
++{
++    rfGate.setLocalEnable(false);
++    bool ok = true;
++    for (auto &radio : radios)
++        if (radio->healthy)
++            ok &= radio->sleep();
++    digitalWrite(NOMAD_FAN_PIN, LOW);
++    pixels.clear();
++    pixels.show();
++    return ok;
++}
++bool NomadDualRadioManager::cancelSending(NodeNum from, PacketId id)
++{
++    bool found = false;
++    for (auto &radio : radios)
++        found |= radio->cancelSending(from, id);
++    return found;
++}
++bool NomadDualRadioManager::findInTxQueue(NodeNum from, PacketId id)
++{
++    for (auto &radio : radios)
++        if (radio->findInTxQueue(from, id))
++            return true;
++    return false;
++}
++bool NomadDualRadioManager::removePendingTXPacket(NodeNum from, PacketId id, uint32_t hops)
++{
++    bool found = false;
++    for (auto &radio : radios)
++        found |= static_cast<RadioInterface *>(radio.get())->removePendingTXPacket(from, id, hops);
++    return found;
++}
++void NomadDualRadioManager::clampToLateRebroadcastWindow(NodeNum from, PacketId id)
++{
++    for (auto &radio : radios)
++        static_cast<RadioInterface *>(radio.get())->clampToLateRebroadcastWindow(from, id);
++}
++#endif
++
++#ifdef RADIOMASTER_NOMAD
++void NomadRadioContext::addReceiveMetadata(meshtastic_MeshPacket *p)
++{
++    LR1121Interface::addReceiveMetadata(p);
++    lastRssi = p->rx_rssi;
++    lastSnr = p->rx_snr;
++}
++
++void NomadRadioContext::startReceive()
++{
++    if (!settings.rxAllowed) {
++        setStandby();
++        return;
++    }
++    LR1121Interface::startReceive();
++}
++
++bool NomadRadioContext::configure(const NomadRadioSettings &value)
++{
++    if (value.version != 1 || value.preset < _meshtastic_Config_LoRaConfig_ModemPreset_MIN ||
++        value.preset > _meshtastic_Config_LoRaConfig_ModemPreset_MAX || value.targetDbm < -20 || value.targetDbm > 30)
++        return false;
++    auto candidate = config.lora;
++    candidate.use_preset = true;
++    candidate.modem_preset = value.preset;
++    candidate.channel_num = value.slot;
++    if (!checkConfigRegion(candidate) || (value.slot && value.slot > frequencySlotCount(candidate)))
++        return false;
++    Preferences prefs;
++    if (!prefs.begin(nomadIndex ? "nomad-b-v1" : "nomad-a-v1", false))
++        return false;
++    const bool persisted = prefs.putBytes("settings", &value, sizeof(value)) == sizeof(value);
++    prefs.end();
++    if (!persisted)
++        return false;
++    rfGate.setLocalEnable(false);
++    settings = value;
++    if (healthy)
++        healthy = reconfigure();
++    else
++        healthy = init();
++    return true;
++}
++
++NomadRadioStatistics NomadRadioContext::statistics()
++{
++    NomadRadioStatistics result;
++    result.healthy = healthy && !disabled;
++    result.calibrated = calibration != nullptr;
++    result.transmitting = isSending();
++    result.received = rxGood;
++    result.bad = rxBad;
++    result.sent = txGood;
++    result.dropped = txDrop;
++    result.queued = packetsInTxQueue();
++    result.frequencyMhz = healthy ? getFreq() : 0;
++    result.rssi = lastRssi;
++    result.snr = lastSnr;
++    return result;
++}
++
++bool NomadDualRadioManager::configureRadio(uint8_t index, const NomadRadioSettings &settings)
++{
++    return index < radios.size() && radios[index]->configure(settings);
++}
++
++NomadRadioStatistics NomadDualRadioManager::radioStatistics(uint8_t index)
++{
++    return index < radios.size() ? radios[index]->statistics() : NomadRadioStatistics{};
++}
++#endif
+diff --git a/src/mesh/NomadDualRadio.h b/src/mesh/NomadDualRadio.h
+new file mode 100644
+index 0000000..b14bf1a
+--- /dev/null
++++ b/src/mesh/NomadDualRadio.h
+@@ -0,0 +1,120 @@
++#pragma once
++#ifdef RADIOMASTER_NOMAD
++#include "LR1121Interface.h"
++#include "NomadRadioPolicy.h"
++#include "NomadRfFrontend.h"
++#include "RadioTxHook.h"
++#include "concurrency/OSThread.h"
++#include "configuration.h"
++#include <Adafruit_NeoPixel.h>
++#include <array>
++
++struct NomadRadioSettings {
++    uint8_t version = 1;
++    bool enabled = true, rxAllowed = true, txAllowed = true;
++    meshtastic_Config_LoRaConfig_ModemPreset preset = meshtastic_Config_LoRaConfig_ModemPreset_LONG_FAST;
++    uint32_t slot = 0;
++    int8_t targetDbm = 0;
++    uint8_t role = 0;
++};
++
++struct NomadRadioStatistics {
++    uint8_t version = 1;
++    bool healthy = false, calibrated = false, transmitting = false;
++    uint32_t received = 0, bad = 0, sent = 0, dropped = 0, queued = 0;
++    float frequencyMhz = 0, snr = 0;
++    int32_t rssi = 0;
++};
++
++class NomadRadioScheduler : public RadioTxHook
++{
++  public:
++    PreTxAction beforeTransmit(RadioInterface *iface, meshtastic_MeshPacket *p) override;
++};
++
++class NomadRadioContext : public LR1121Interface
++{
++    meshtastic_Config_LoRaConfig localConfig = {};
++    const nomad::CalibrationStep *calibration = nullptr;
++    bool initializationAttempted = false;
++    void prepareConfig();
++    void logVersion();
++
++  protected:
++    meshtastic_Config_LoRaConfig &modemConfig() override;
++    const char *modemChannelName() override;
++    void limitPower(int8_t maximum) override;
++    int16_t launchTransmit(size_t numbytes) override;
++
++  public:
++    NomadRadioSettings settings;
++    float lastSnr = 0;
++    int32_t lastRssi = 0;
++    NomadRadioContext(LockingArduinoHal *hal, uint8_t index);
++    bool init() override;
++    bool reconfigure() override;
++    bool healthy = false;
++    void configHardwareForSend() override;
++    bool canSendImmediately() override;
++    ErrorCode send(meshtastic_MeshPacket *p) override;
++    void addReceiveMetadata(meshtastic_MeshPacket *p) override;
++    void startReceive() override;
++    bool configure(const NomadRadioSettings &value);
++    NomadRadioStatistics statistics();
++    const char *presetName() const;
++};
++
++class NomadDualRadioManager : public RadioInterface, private concurrency::OSThread
++{
++    NomadRadioScheduler scheduler;
++    std::array<std::unique_ptr<NomadRadioContext>, 2> radios;
++    Adafruit_NeoPixel pixels{2, NOMAD_RGB_PIN, NEO_GRB + NEO_KHZ800};
++    uint32_t rxCounts[2] = {}, badCounts[2] = {}, activityMs[2] = {};
++    uint32_t lastMaintenance = 0, lastTx = 0, buttonStart = 0;
++    uint8_t fanMode = 0;
++    bool buttonDown = false, fanRunning = false, longPressHandled = false;
++    uint8_t operatingMode = 2;
++    nomad::PacketDispatcher dispatcher;
++    int32_t runOnce() override;
++    NomadRadioContext *primary() const;
++    NomadRadioContext *contextForPacket(const meshtastic_MeshPacket *p);
++
++  public:
++    explicit NomadDualRadioManager(LockingArduinoHal *hal);
++    ~NomadDualRadioManager() override;
++    bool received(uint8_t index, const meshtastic_MeshPacket *p);
++    bool configureRadio(uint8_t index, const NomadRadioSettings &settings);
++    NomadRadioStatistics radioStatistics(uint8_t index);
++    void transmitting();
++    const char *packetPresetName(const meshtastic_MeshPacket *p);
++    int packetOrigin(const meshtastic_MeshPacket *p);
++    bool acceptResponse(const meshtastic_MeshPacket *p);
++    bool restoreTransmitOrigin(const meshtastic_MeshPacket *p, int radio);
++    void prepareTransmit(const meshtastic_MeshPacket *p);
++    bool init() override;
++    bool reconfigure() override;
++    ErrorCode send(meshtastic_MeshPacket *p) override;
++    bool wideLora() override { return true; }
++    bool canSleep(bool deepSleep = false) override;
++    bool sleep() override;
++    uint32_t getPacketTime(uint32_t length, bool received = false) override;
++    uint32_t getPacketTime(const meshtastic_MeshPacket *p, bool received = false) override;
++    uint32_t getRetransmissionMsec(const meshtastic_MeshPacket *p) override;
++    meshtastic_QueueStatus getQueueStatus() override;
++    bool cancelSending(NodeNum from, PacketId id) override;
++    bool findInTxQueue(NodeNum from, PacketId id) override;
++    bool removePendingTXPacket(NodeNum from, PacketId id, uint32_t hops) override;
++    void clampToLateRebroadcastWindow(NodeNum from, PacketId id) override;
++    float getFreq() override;
++};
++
++void nomadEarlyInit();
++bool nomadReceived(uint8_t index, const meshtastic_MeshPacket *p);
++const char *nomadPacketPresetName(const meshtastic_MeshPacket *p);
++bool nomadLabEnabled();
++void nomadPrepareTransmit(const meshtastic_MeshPacket *p);
++bool nomadSameRadio(const meshtastic_MeshPacket *a, const meshtastic_MeshPacket *b);
++bool nomadAcceptResponse(const meshtastic_MeshPacket *p);
++int nomadPacketOrigin(const meshtastic_MeshPacket *p);
++bool nomadRestoreTransmitOrigin(const meshtastic_MeshPacket *p, int radio);
++#endif
+diff --git a/src/mesh/NomadRadioPolicy.h b/src/mesh/NomadRadioPolicy.h
+new file mode 100644
+index 0000000..6f080d3
+--- /dev/null
++++ b/src/mesh/NomadRadioPolicy.h
+@@ -0,0 +1,65 @@
++#pragma once
++#include <array>
++#include <cstdint>
++
++namespace nomad
++{
++class PacketOrigins
++{
++    struct Entry {
++        uint32_t from = 0, id = 0, seen = 0;
++        uint8_t radio = 0;
++        bool used = false;
++    };
++    std::array<Entry, 128> entries{};
++    unsigned next = 0;
++
++  public:
++    static constexpr uint32_t RETENTION_MS = 600000;
++    int find(uint32_t from, uint32_t id, uint32_t now) const
++    {
++        for (auto &entry : entries)
++            if (entry.used && entry.from == from && entry.id == id && uint32_t(now - entry.seen) < RETENTION_MS)
++                return entry.radio;
++        return -1;
++    }
++    bool receive(uint32_t from, uint32_t id, uint8_t radio, uint32_t now)
++    {
++        int prior = find(from, id, now);
++        if (prior >= 0)
++            return prior == radio;
++        entries[next] = {from, id, now, radio, true};
++        next = (next + 1) % entries.size();
++        return true;
++    }
++};
++
++class PacketDispatcher
++{
++    PacketOrigins received, transmitted;
++
++  public:
++    int find(uint32_t from, uint32_t id, uint32_t now) const
++    {
++        const int outgoing = transmitted.find(from, id, now);
++        return outgoing >= 0 ? outgoing : received.find(from, id, now);
++    }
++    bool receive(uint32_t from, uint32_t id, uint8_t radio, uint32_t now)
++    {
++        const int outgoing = transmitted.find(from, id, now);
++        return outgoing >= 0 ? outgoing == radio : received.receive(from, id, radio, now);
++    }
++    bool sent(uint32_t from, uint32_t id, uint8_t radio, uint32_t now) { return transmitted.receive(from, id, radio, now); }
++    bool responseAllowed(uint32_t requestFrom, uint32_t requestId, uint32_t responseFrom, uint32_t responseId, bool toUs,
++                         uint32_t now) const
++    {
++        const int request = transmitted.find(requestFrom, requestId, now);
++        return request < 0 ? !toUs : request == find(responseFrom, responseId, now);
++    }
++};
++
++inline bool fanRequired(uint8_t mode, bool transmitting, bool hasTransmitted, uint32_t elapsed)
++{
++    return mode == 1 || transmitting || (hasTransmitted && elapsed < 60000);
++}
++} // namespace nomad
+diff --git a/src/mesh/NomadRfFrontend.h b/src/mesh/NomadRfFrontend.h
+new file mode 100644
+index 0000000..4a9e5d6
+--- /dev/null
++++ b/src/mesh/NomadRfFrontend.h
+@@ -0,0 +1,41 @@
++#pragma once
++#include <cstddef>
++#include <cstdint>
++
++namespace nomad
++{
++struct CalibrationStep {
++    uint8_t radio = 0;
++    uint32_t frequencyKhz = 0;
++    int8_t targetDbm = 0;
++    int16_t measuredCentiDbm = 0;
++    int8_t driveDbm = 0;
++    uint8_t dac = 0;
++};
++
++inline bool validCalibration(const CalibrationStep &step, uint8_t radio, uint32_t frequencyKhz, int8_t targetDbm)
++{
++    const int error = step.measuredCentiDbm - int(targetDbm) * 100;
++    return step.radio == radio && step.frequencyKhz == frequencyKhz && frequencyKhz != 0 && step.targetDbm == targetDbm &&
++           step.driveDbm >= -17 && step.driveDbm <= 5 && step.dac >= 95 && step.dac <= 120 && error >= -50 && error <= 50;
++}
++
++class RfGate
++{
++    bool enabled = false;
++
++  public:
++    void setLocalEnable(bool value) { enabled = value; }
++    bool allows(bool calibrated) const { return enabled && calibrated; }
++    bool isEnabled() const { return enabled; }
++};
++} // namespace nomad
++
++// Supply measured initializer entries using an explicit local calibration header.
++#ifdef NOMAD_CALIBRATION_HEADER
++#include NOMAD_CALIBRATION_HEADER
++#endif
++#ifndef NOMAD_CALIBRATION_STEPS
++#define NOMAD_CALIBRATION_STEPS
++#endif
++inline constexpr nomad::CalibrationStep NOMAD_MEASURED_STEPS[] = {{}, NOMAD_CALIBRATION_STEPS};
+diff --git a/src/mesh/RadioInterface.cpp b/src/mesh/RadioInterface.cpp
+index 7a84b89..f926c50 100644
+--- a/src/mesh/RadioInterface.cpp
++++ b/src/mesh/RadioInterface.cpp
+@@ -5,6 +5,9 @@
+ #include "LR1110Interface.h"
+ #include "LR1120Interface.h"
+ #include "LR1121Interface.h"
++#ifdef RADIOMASTER_NOMAD
++#include "NomadDualRadio.h"
++#endif
+ #include "LR2021Interface.h"
+ #include "MeshRadio.h"
+ #include "MeshService.h"
+@@ -607,8 +610,12 @@ std::unique_ptr<RadioInterface> initLoRa()
+ 
+ #if defined(USE_LR1121) && RADIOLIB_EXCLUDE_LR11X0 != 1
+     if (!rIf) {
++#ifdef RADIOMASTER_NOMAD
++        rIf = std::make_unique<NomadDualRadioManager>(loraHal);
++#else
+         rIf = std::unique_ptr<LR1121Interface>(
+             new LR1121Interface(loraHal, LR1121_SPI_NSS_PIN, LR1121_IRQ_PIN, LR1121_NRESET_PIN, LR1121_BUSY_PIN));
++#endif
+         if (!rIf->init()) {
+             LOG_WARN("No LR1121 radio");
+             rIf = nullptr;
+@@ -785,6 +792,10 @@ void getRegionPresetMap(meshtastic_LoRaRegionPresetMap &map)
+  */
+ float getEffectiveDutyCycle()
+ {
++#if defined(RADIOMASTER_NOMAD) && defined(NOMAD_RF_LAB)
++    if (nomadLabEnabled())
++        return 100.0f;
++#endif
+     if (myRegion->code == meshtastic_Config_LoRaConfig_RegionCode_EU_866) {
+         if (config.device.role == meshtastic_Config_DeviceConfig_Role_ROUTER ||
+             config.device.role == meshtastic_Config_DeviceConfig_Role_ROUTER_LATE) {
+@@ -1342,7 +1353,7 @@ void RadioInterface::applyModemConfig()
+ {
+     // Set up default configuration
+     // No Sync Words in LORA mode
+-    meshtastic_Config_LoRaConfig &loraConfig = config.lora;
++    meshtastic_Config_LoRaConfig &loraConfig = modemConfig();
+     const RegionInfo *newRegion = getRegion(loraConfig.region);
+     myRegion = newRegion;
+ 
+@@ -1402,7 +1413,7 @@ void RadioInterface::applyModemConfig()
+     // Calculate hash of channel name and preset name to pick a default frequency slot if user has not specified one.
+     // Note that channel_num is actually (channel_num - 1), i.e. zero-based, since modulus (%) returns values from 0 to
+     // (numFreqSlots - 1).
+-    const char *channelName = channels.getName(channels.getPrimaryIndex());
++    const char *channelName = modemChannelName();
+     // Guard the modulo: numFreqSlots can be 0 for an UNSET/degenerate region, and % 0 is a SIGFPE
+     uint32_t channelNameHashSlot = numFreqSlots ? (hash(channelName) % numFreqSlots) : 0;
+     uint32_t presetNameHashSlot =
+@@ -1423,7 +1434,7 @@ void RadioInterface::applyModemConfig()
+         // custom channel name, then use the hash of that channel name to pick a frequency slot. Note that channel_num is actually
+         // (channel_num - 1), i.e. zero-based, since modulus (%) returns values from 0 to (numFreqSlots - 1).
+         // NB: channel_num is also know as frequency slot but it's too late to fix now.
+-        if (uses_default_frequency_slot) {
++        if (&loraConfig != &config.lora ? loraConfig.channel_num == 0 : uses_default_frequency_slot) {
+             // Handle three override slot cases: explicit slot (>0), preset hash (-1), or channel hash (0)
+             if (newRegion->overrideSlot > 0) {
+                 channel_num = newRegion->overrideSlot - 1; // explicit override slot (1-based to 0-based)
+@@ -1504,7 +1515,7 @@ uint32_t RadioInterface::computeSlotTimeMsec()
+  */
+ void RadioInterface::limitPower(int8_t loraMaxPower)
+ {
+-    power = config.lora.tx_power; // applyModemConfig() writes the resolved value back here
++    power = modemConfig().tx_power;
+     uint8_t maxPower = 255;       // No limit
+ 
+     if (myRegion->powerLimit)
+@@ -1606,3 +1617,12 @@ size_t RadioInterface::encodeRadioBuffer(meshtastic_MeshPacket *p)
+ 
+     return payloadLen + sizeof(PacketHeader);
+ }
++
++meshtastic_Config_LoRaConfig &RadioInterface::modemConfig()
++{
++    return config.lora;
++}
++const char *RadioInterface::modemChannelName()
++{
++    return channels.getName(channels.getPrimaryIndex());
++}
+diff --git a/src/mesh/RadioInterface.h b/src/mesh/RadioInterface.h
+index 124b750..ace957b 100644
+--- a/src/mesh/RadioInterface.h
++++ b/src/mesh/RadioInterface.h
+@@ -94,6 +94,8 @@ class RadioInterface
+ 
+   protected:
+     bool disabled = false;
++    virtual meshtastic_Config_LoRaConfig &modemConfig();
++    virtual const char *modemChannelName();
+ 
+     float bw = 125;
+     uint8_t sf = 9;
+@@ -219,7 +221,7 @@ class RadioInterface
+     virtual bool reconfigure();
+ 
+     /** The delay to use for retransmitting dropped packets */
+-    [[nodiscard]] uint32_t getRetransmissionMsec(const meshtastic_MeshPacket *p);
++    [[nodiscard]] virtual uint32_t getRetransmissionMsec(const meshtastic_MeshPacket *p);
+ 
+     /** The delay to use when we want to send something */
+     [[nodiscard]] uint32_t getTxDelayMsec();
+@@ -252,7 +254,7 @@ class RadioInterface
+      *
+      * @return num msecs for the packet
+      */
+-    [[nodiscard]] uint32_t getPacketTime(const meshtastic_MeshPacket *p, bool received = false);
++    [[nodiscard]] virtual uint32_t getPacketTime(const meshtastic_MeshPacket *p, bool received = false);
+     [[nodiscard]] virtual uint32_t getPacketTime(uint32_t totalPacketLen, bool received = false) = 0;
+ 
+     /**
+@@ -326,7 +328,7 @@ class RadioInterface
+      * Some regulatory regions limit xmit power.
+      * This function should be called by subclasses after setting their desired power.  It might lower it
+      */
+-    void limitPower(int8_t MAX_POWER);
++    virtual void limitPower(int8_t MAX_POWER);
+ 
+     /**
+      * Save the frequency we selected for later reuse.
+diff --git a/src/mesh/RadioLibInterface.cpp b/src/mesh/RadioLibInterface.cpp
+index 2fd3fd5..43021c7 100644
+--- a/src/mesh/RadioLibInterface.cpp
++++ b/src/mesh/RadioLibInterface.cpp
+@@ -3,6 +3,9 @@
+ #include "NodeDB.h"
+ #include "PowerMon.h"
+ #include "RadioTxHook.h"
++#ifdef RADIOMASTER_NOMAD
++#include "NomadDualRadio.h"
++#endif
+ #include "SPILock.h"
+ #include "Throttle.h"
+ #include "UptimeClock.h"
+@@ -43,7 +46,14 @@ RadioLibInterface::RadioLibInterface(LockingArduinoHal *hal, RADIOLIB_PIN_TYPE c
+                                      RADIOLIB_PIN_TYPE busy, PhysicalLayer *_iface)
+     : NotifiedWorkerThread("RadioIf"), module(hal, cs, irq, rst, busy), iface(_iface)
+ {
++#ifdef RADIOMASTER_NOMAD
++    nomadIndex = cs == 13 ? 1 : 0;
++    nomadInstances[nomadIndex] = this;
++    if (!instance)
++        instance = this;
++#else
+     instance = this;
++#endif
+ 
+ #ifdef MESHTASTIC_RX_READOUT_TASK
+     // Before any sequence can start, not with the task in startReceive(): the first RadioSequence to wrap that call
+@@ -116,6 +126,19 @@ void INTERRUPT_ATTR RadioLibInterface::isrTxLevel0()
+ /** Our ISR code currently needs this to find our active instance
+  */
+ RadioLibInterface *RadioLibInterface::instance;
++#ifdef RADIOMASTER_NOMAD
++RadioLibInterface *RadioLibInterface::nomadInstances[2] = {};
++void INTERRUPT_ATTR RadioLibInterface::nomadIrq(uint8_t index, PendingISR cause)
++{
++    auto radio = nomadInstances[index];
++    if (!radio)
++        return;
++    radio->disableInterrupt();
++    BaseType_t woken = pdFALSE;
++    radio->notifyFromISR(&woken, cause, true);
++    YIELD_FROM_ISR(woken);
++}
++#endif
+ 
+ /** At most one busyRx deferral line per this interval; the line carries the count it stands for. */
+ #define BUSY_RX_LOG_INTERVAL_MS 30000
+@@ -144,8 +167,13 @@ bool RadioLibInterface::canSendImmediately()
+         if (busyTx && !Throttle::isWithinTimespanMs(lastTxStart, 60000)) {
+             LOG_ERROR("Hardware Failure! busyTx >60s");
+             RECORD_CRITICALERROR(meshtastic_CriticalErrorCode_TRANSMIT_FAILED);
++#ifdef RADIOMASTER_NOMAD
++            disabled = true;
++            setStandby();
++#else
+             // reboot in 5 seconds when this condition occurs.
+             rebootAtMsec = Time::skipZero(lastTxStart + 65000);
++#endif
+         }
+         if (busyRx) {
+             // Normal on a busy channel, and checked on every attempt: log the count at most once per interval
+@@ -479,6 +507,10 @@ static constexpr bool txTimerOverwrite = false;
+ // cppcheck-suppress constParameterPointer ; a function pointer can't meaningfully point to const
+ bool RadioLibInterface::isIsrTxCallback(void (*callback)())
+ {
++#ifdef RADIOMASTER_NOMAD
++    if (callback == nomadTxA || callback == nomadTxB)
++        return true;
++#endif
+     return callback == isrTxLevel0;
+ }
+ 
+@@ -979,6 +1011,12 @@ void RadioLibInterface::handleReceiveInterrupt(const CapturedRxInfo *captured)
+ 
+             airTime->logAirtime(RX_LOG, rxMsec);
+ 
++#ifdef RADIOMASTER_NOMAD
++            if (!nomadReceived(nomadIndex, mp)) {
++                packetPool.release(mp);
++                return;
++            }
++#endif
+             deliverToReceiver(mp);
+         }
+     }
+@@ -1193,10 +1231,17 @@ bool RadioLibInterface::maybeRecoverChipStateLoss()
+     // only once the chip really accepted RX. Judging the previous attempt here - a throttle window later,
+     // after its retry - is what stops a begin() that succeeded while leaving RX dead from crediting itself.
+     if (chipRecoveryFailures >= MAX_CHIP_RECOVERY_FAILURES && rebootAtMsec == 0) {
++#ifdef RADIOMASTER_NOMAD
++        disabled = true;
++        disableInterrupt();
++        LOG_ERROR("Nomad radio %c disabled after %u recovery failures", 'A' + nomadIndex, chipRecoveryFailures);
++        return false;
++#else
+         // Attempts are a throttle window apart, so this is minutes of a provably deaf chip. begin() alone
+         // clearly isn't reviving it; reboot to re-run init(), which redoes the power-on sequence it skips.
+         LOG_ERROR("Radio still deaf after %u re-inits, rebooting", chipRecoveryFailures);
+         rebootAtMsec = Time::timerEndsAtMillis(DEFAULT_REBOOT_SECONDS * 1000);
++#endif
+     }
+     chipRecoveryFailures++;
+ 
+diff --git a/src/mesh/RadioLibInterface.h b/src/mesh/RadioLibInterface.h
+index 06127fa..749ed95 100644
+--- a/src/mesh/RadioLibInterface.h
++++ b/src/mesh/RadioLibInterface.h
+@@ -173,10 +173,23 @@ class RadioLibInterface : public RadioInterface, protected concurrency::Notified
+     /** Our ISR code currently needs this to find our active instance
+      */
+     static RadioLibInterface *instance;
++#ifdef RADIOMASTER_NOMAD
++    static RadioLibInterface *nomadInstances[2];
++    uint8_t nomadIndex = 0;
++    static void INTERRUPT_ATTR nomadIrq(uint8_t index, PendingISR cause);
++    static void INTERRUPT_ATTR nomadRxA() { nomadIrq(0, ISR_RX); }
++    static void INTERRUPT_ATTR nomadRxB() { nomadIrq(1, ISR_RX); }
++    static void INTERRUPT_ATTR nomadTxA() { nomadIrq(0, ISR_TX); }
++    static void INTERRUPT_ATTR nomadTxB() { nomadIrq(1, ISR_TX); }
++#endif
+ 
+     /** Clear instance on destruction so stale pointer checks in loop() are safe */
+     virtual ~RadioLibInterface()
+     {
++#ifdef RADIOMASTER_NOMAD
++        if (nomadInstances[nomadIndex] == this)
++            nomadInstances[nomadIndex] = nullptr;
++#endif
+         if (instance == this)
+             instance = nullptr;
+ #ifdef MESHTASTIC_RX_READOUT_TASK
+@@ -217,6 +230,12 @@ class RadioLibInterface : public RadioInterface, protected concurrency::Notified
+      */
+     void enableInterrupt(void (*callback)())
+     {
++#ifdef RADIOMASTER_NOMAD
++        if (callback == isrRxLevel0)
++            callback = nomadIndex ? nomadRxB : nomadRxA;
++        else if (callback == isrTxLevel0)
++            callback = nomadIndex ? nomadTxB : nomadTxA;
++#endif
+         // Latch before arming: the ISR can fire the moment the handler is installed.
+         isrEverArmed = true;
+         setRadioIsr(callback);
+diff --git a/src/mesh/ReliableRouter.cpp b/src/mesh/ReliableRouter.cpp
+index f2c71bb..261b68d 100644
+--- a/src/mesh/ReliableRouter.cpp
++++ b/src/mesh/ReliableRouter.cpp
+@@ -5,6 +5,9 @@
+ #include "NodeDB.h"
+ #include "UptimeClock.h"
+ #include "configuration.h"
++#ifdef RADIOMASTER_NOMAD
++#include "NomadDualRadio.h"
++#endif
+ #include "memGet.h"
+ #include "mesh-pb-constants.h"
+ #include "modules/NodeInfoModule.h"
+@@ -18,6 +21,9 @@
+  */
+ ErrorCode ReliableRouter::send(meshtastic_MeshPacket *p)
+ {
++#ifdef RADIOMASTER_NOMAD
++    nomadPrepareTransmit(p);
++#endif
+     if (isBlockedEventCoordinatePacket(p)) {
+         LOG_DEBUG("Suppress reliable coordinate send on event (everyone) channel");
+         packetPool.release(p);
+@@ -42,6 +48,10 @@ ErrorCode ReliableRouter::send(meshtastic_MeshPacket *p)
+        (implicit) ACK. Otherwise, we might retransmit too early.
+      */
+     for (auto i = pending.begin(); i != pending.end(); i++) {
++#ifdef RADIOMASTER_NOMAD
++        if (!nomadSameRadio(p, i->second.packet))
++            continue;
++#endif
+         if (i->first.id != p->id) {
+             i->second.nextTxMsec += iface->getPacketTime(p);
+         }
+@@ -99,6 +109,10 @@ bool ReliableRouter::shouldFilterReceived(const meshtastic_MeshPacket *p)
+        If we don't add this, we will likely retransmit too early.
+     */
+     for (auto i = pending.begin(); i != pending.end(); i++) {
++#ifdef RADIOMASTER_NOMAD
++        if (!nomadSameRadio(p, i->second.packet))
++            continue;
++#endif
+         i->second.nextTxMsec += iface->getPacketTime(p, true);
+     }
+ 
+diff --git a/src/mesh/Router.cpp b/src/mesh/Router.cpp
+index cc35ff8..babc7b6 100644
+--- a/src/mesh/Router.cpp
++++ b/src/mesh/Router.cpp
+@@ -10,6 +10,9 @@
+ #include "gps/RTC.h"
+ 
+ #include "configuration.h"
++#ifdef RADIOMASTER_NOMAD
++#include "NomadDualRadio.h"
++#endif
+ #include "main.h"
+ #include "mesh-pb-constants.h"
+ #include "meshUtils.h"
+@@ -589,6 +592,9 @@ ErrorCode Router::send(meshtastic_MeshPacket *p)
+     }
+ 
+     // If the packet is not yet encrypted, do so now
++#ifdef RADIOMASTER_NOMAD
++    nomadPrepareTransmit(p);
++#endif
+     if (p->which_payload_variant == meshtastic_MeshPacket_decoded_tag) {
+         ChannelIndex chIndex = p->channel; // keep as a local because we are about to change it
+ 
+@@ -1025,7 +1031,11 @@ DecodeState perhapsDecode(meshtastic_MeshPacket *p)
+         // Try to find a channel that works with this hash
+         for (chIndex = 0; chIndex < channels.getNumChannels(); chIndex++) {
+             // Try to use this hash/channel pair
++#ifdef RADIOMASTER_NOMAD
++            if (channels.decryptForHash(chIndex, p->channel, nomadPacketPresetName(p))) {
++#else
+             if (channels.decryptForHash(chIndex, p->channel)) {
++#endif
+                 matchedChannel = true;
+                 // we have to copy into a scratch buffer, because these bytes are a union with the decoded protobuf. Create a
+                 // fresh copy for each decrypt attempt.
+@@ -1367,6 +1377,10 @@ meshtastic_Routing_Error perhapsEncode(meshtastic_MeshPacket *p)
+                 return meshtastic_Routing_Error_TOO_LARGE;
+ 
+             hash = channels.setActiveByIndex(chIndex);
++#ifdef RADIOMASTER_NOMAD
++            if (const auto name = nomadPacketPresetName(p); name && channels.getByIndex(chIndex).settings.name[0] == 0)
++                hash = channels.hashFor(chIndex, name);
++#endif
+ 
+             // Now that we are encrypting the packet channel should be the hash (no longer the index)
+             p->channel = hash;
+@@ -1543,6 +1557,13 @@ void Router::dispatchReceived(meshtastic_MeshPacket *p, RxSource src)
+ 
+     // Take those raw bytes and convert them back into a well structured protobuf we can understand
+     auto decodedState = perhapsDecode(p);
++#ifdef RADIOMASTER_NOMAD
++    if (src == RX_SRC_RADIO && decodedState == DecodeState::DECODE_SUCCESS && !nomadAcceptResponse(p)) {
++        LOG_WARN("Nomad response dropped: unknown request or different PHY");
++        packetPool.release(p_encrypted);
++        return;
++    }
++#endif
+     if (decodedState == DecodeState::DECODE_FATAL || decodedState == DecodeState::DECODE_POLICY_REJECT ||
+         decodedState == DecodeState::DECODE_FAILURE) {
+         // Fatal decoding error, we can't do anything with this packet
+diff --git a/test/test_nomad_policy/test_main.cpp b/test/test_nomad_policy/test_main.cpp
+new file mode 100644
+index 0000000..eb3003f
+--- /dev/null
++++ b/test/test_nomad_policy/test_main.cpp
+@@ -0,0 +1,91 @@
++// Tests PacketOrigins and fanRequired in src/mesh/NomadRadioPolicy.h.
++// A frame first seen on one PHY must never be relayed onto the other PHY,
++// including across the 32-bit clock wrap. Fan override must not defeat post-TX
++// cooling. These guard cross-preset loops and loss of cooling when the operator
++// selects OFF.
++#include "mesh/NomadRadioPolicy.h"
++#include "mesh/NomadRfFrontend.h"
++#ifdef NOMAD_POLICY_STANDALONE
++#include <cassert>
++#include <iostream>
++#define CHECK(x) assert(x)
++#else
++#include <Arduino.h>
++#include <cstdlib>
++#include <unity.h>
++#define CHECK(x) TEST_ASSERT_TRUE(x)
++void setUp() {}
++void tearDown() {}
++#endif
++
++void test_nomad_origin_and_cooling_policy()
++{
++    nomad::PacketDispatcher dispatcher;
++    CHECK(dispatcher.sent(10, 42, 0, 100));
++    CHECK(dispatcher.receive(20, 81, 1, 101));
++    CHECK(!dispatcher.responseAllowed(10, 42, 20, 81, true, 102));
++    CHECK(!dispatcher.receive(10, 42, 1, 102));
++    for (unsigned i = 0; i < 1000; ++i)
++        CHECK(dispatcher.receive(30, i, 1, 103));
++    CHECK(dispatcher.find(10, 42, 104) == 0);
++    CHECK(dispatcher.receive(20, 82, 0, 105));
++    CHECK(dispatcher.responseAllowed(10, 42, 20, 82, true, 106));
++    CHECK(!dispatcher.responseAllowed(10, 999, 20, 82, true, 106));
++    CHECK(dispatcher.responseAllowed(10, 999, 20, 82, false, 106));
++    nomad::RfGate gate;
++    CHECK(!gate.allows(false));
++    CHECK(!gate.allows(true));
++    gate.setLocalEnable(true);
++    CHECK(!gate.allows(false));
++    CHECK(gate.allows(true));
++    gate.setLocalEnable(false);
++    CHECK(!gate.allows(true));
++    // Synthetic test-only measurements must never become production calibration entries.
++    nomad::CalibrationStep step{0, 923125, 30, 3000, 5, 95};
++    CHECK(nomad::validCalibration(step, 0, 923125, 30));
++    CHECK(!nomad::validCalibration(step, 1, 923125, 30));
++    CHECK(!nomad::validCalibration(step, 0, 923375, 30));
++    CHECK(!nomad::validCalibration(step, 0, 923125, 27));
++    step.measuredCentiDbm = 2800;
++    CHECK(!nomad::validCalibration(step, 0, 923125, 30));
++    CHECK(!nomad::validCalibration({}, 0, 0, 0));
++    nomad::PacketOrigins origins;
++    CHECK(origins.find(1, 10, 0) == -1);
++    CHECK(origins.receive(1, 10, 0, 100));
++    CHECK(origins.receive(2, 10, 1, 100));
++    CHECK(origins.find(1, 10, 110) == 0);
++    CHECK(origins.find(2, 10, 110) == 1);
++    CHECK(!origins.receive(1, 10, 1, 120));
++    CHECK(origins.receive(1, 10, 0, 120));
++    CHECK(origins.find(1, 10, 600100) == -1);
++    nomad::PacketOrigins wrap;
++    CHECK(wrap.receive(5, 99, 1, 0xffffff00));
++    CHECK(wrap.find(5, 99, 100) == 1);
++    CHECK(!wrap.receive(5, 99, 0, 100));
++    for (unsigned i = 0; i < 1000; ++i)
++        CHECK(wrap.receive(8, i, i % 2, i));
++    CHECK(wrap.find(8, 999, 1000) == 1);
++    CHECK(wrap.find(8, 0, 1000) == -1);
++    CHECK(!nomad::fanRequired(0, false, false, 0));
++    CHECK(nomad::fanRequired(1, false, false, 0));
++    CHECK(nomad::fanRequired(2, true, false, 0));
++    CHECK(nomad::fanRequired(2, false, true, 59999));
++    CHECK(!nomad::fanRequired(2, false, true, 60000));
++}
++
++#ifdef NOMAD_POLICY_STANDALONE
++int main()
++{
++    test_nomad_origin_and_cooling_policy();
++    std::cout << "Nomad origin and cooling policy: PASS\n";
++    return 0;
++}
++#else
++void setup()
++{
++    UNITY_BEGIN();
++    RUN_TEST(test_nomad_origin_and_cooling_policy);
++    exit(UNITY_END());
++}
++void loop() {}
++#endif
+diff --git a/variants/esp32/radiomaster_nomad/platformio.ini b/variants/esp32/radiomaster_nomad/platformio.ini
+new file mode 100644
+index 0000000..e49863c
+--- /dev/null
++++ b/variants/esp32/radiomaster_nomad/platformio.ini
+@@ -0,0 +1,22 @@
++[env:radiomaster-nomad]
++extends = esp32_base
++board = esp32dev
++board_level = extra
++board_build.partitions = partition-table.csv
++board_upload.flash_size = 4MB
++upload_port = COM3
++monitor_port = COM3
++build_flags =
++  ${esp32_base.build_flags}
++  -D RADIOMASTER_NOMAD
++  -D HAS_SCREEN=0
++  -D HAS_GPS=0
++  -D HAS_WIRE=0
++  -D MESHTASTIC_EXCLUDE_READOUT_TASK=1
++  -I variants/esp32/radiomaster_nomad
++
++[env:radiomaster-nomad-rf-lab]
++extends = env:radiomaster-nomad
++build_flags =
++  ${env:radiomaster-nomad.build_flags}
++  -D NOMAD_RF_LAB=1
+diff --git a/variants/esp32/radiomaster_nomad/rfswitch.h b/variants/esp32/radiomaster_nomad/rfswitch.h
+new file mode 100644
+index 0000000..2558795
+--- /dev/null
++++ b/variants/esp32/radiomaster_nomad/rfswitch.h
+@@ -0,0 +1,11 @@
++#pragma once
++#include <RadioLib.h>
++
++static const uint32_t rfswitch_dio_pins[] = {RADIOLIB_LR11X0_DIO5, RADIOLIB_LR11X0_DIO6, RADIOLIB_LR11X0_DIO7,
++                                             RADIOLIB_LR11X0_DIO8, RADIOLIB_NC};
++static const Module::RfSwitchMode_t rfswitch_table[] = {
++    {LR11x0::MODE_STBY, {LOW, LOW, LOW, LOW}},   {LR11x0::MODE_RX, {LOW, LOW, HIGH, LOW}},
++    {LR11x0::MODE_TX, {LOW, LOW, LOW, HIGH}},    {LR11x0::MODE_TX_HP, {LOW, LOW, LOW, HIGH}},
++    {LR11x0::MODE_TX_HF, {LOW, HIGH, LOW, LOW}}, {LR11x0::MODE_GNSS, {LOW, LOW, LOW, LOW}},
++    {LR11x0::MODE_WIFI, {HIGH, LOW, LOW, LOW}},  END_OF_MODE_TABLE,
++};
+diff --git a/variants/esp32/radiomaster_nomad/variant.h b/variants/esp32/radiomaster_nomad/variant.h
+new file mode 100644
+index 0000000..ccf5127
+--- /dev/null
++++ b/variants/esp32/radiomaster_nomad/variant.h
+@@ -0,0 +1,28 @@
++#pragma once
++
++#define USE_LR1121
++#define LORA_SCK 25
++#define LORA_MOSI 32
++#define LORA_MISO 33
++#define LORA_CS 27
++#define LORA_RESET 15
++#define LR1121_SPI_NSS_PIN 27
++#define LR1121_IRQ_PIN 37
++#define LR1121_NRESET_PIN 15
++#define LR1121_BUSY_PIN 36
++#define LR11X0_DIO_AS_RF_SWITCH
++#define LR1110_MAX_POWER 5
++#define LR1120_MAX_POWER 5
++#define BUTTON_PIN 14
++#define BUTTON_NEED_PULLUP
++#define NOMAD_BUTTON_B 12
++#define NOMAD_FAN_PIN 2
++#define NOMAD_RGB_PIN 22
++#define NOMAD_APC2_PIN 26
++// The C3 backpack is not a Meshtastic serial transport or an upload target.
++#define NOMAD_BACKPACK_RX 18
++#define NOMAD_BACKPACK_TX 5
++#define NOMAD_BACKPACK_BOOT 23
++#define NOMAD_BACKPACK_EN 19
++#undef GPS_RX_PIN
++#undef GPS_TX_PIN

@@ -1,0 +1,7 @@
+f7ec7b7d9026e12dd3616bf79cee0e78974a2605afbc2863fcfb0ac9aeb159d4  bootloader.bin
+eaba0e3f53f0b809a5bd7b66a43661440e1d9bec690313ae411b80cefe06fd7f  firmware-radiomaster-nomad-rf-lab-2.8.3.9bcf0f7.bin
+ac42a7d11a87ccdfbb2c6745815e6bc4626afb5b48a36429b2abdbf42a4c83aa  firmware-radiomaster-nomad-rf-lab-2.8.3.9bcf0f7.elf
+c3f7fdfdd14cbedc530fe8734cf03cb295ee4d129853246216b3b0687c7454c7  firmware-radiomaster-nomad-rf-lab-2.8.3.9bcf0f7.factory.bin
+664ee68d4c5f4091b399cdd4d5fe0af51c7db370c152e78485b9a064e8c3bf8e  firmware-radiomaster-nomad-rf-lab-2.8.3.9bcf0f7.mt.json
+c7f22cd345c7c5cf428092eef4f0927d0ee7d1f17c9486524023ca0b4e8e71f2  littlefs-radiomaster-nomad-rf-lab-2.8.3.9bcf0f7.bin
+58a783124e62fdca4ee0aace491c4acd4594d93c2578fb49fced91598c42ab68  partitions.bin

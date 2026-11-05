@@ -1,0 +1,51 @@
+{
+  "observed_port": "COM3",
+  "main_chip": "ESP32-PICO-D4 rev 1.1",
+  "main_flash_bytes": 4194304,
+  "flashed": true,
+  "installed_environment": "radiomaster-nomad",
+  "firmware_version": "2.8.3.9bcf0f7",
+  "application_sha256": "1d40eb33574db09f624cd925735662052defbd1f7c72d36111acc5595f7bb482",
+  "flash_hash_verified": true,
+  "flash_log": "nomad-final-app-flash.log",
+  "original_flash_backed_up": true,
+  "backup_path": "backups/nomad-20261105-161954/main-esp32-original.bin",
+  "backup_sha256": "5e561be875b716154eb595ace5dc1f7d2244a210a0a4d518289946919945dc1c",
+  "backup_app_checksum_and_validation_hash_valid": true,
+  "backpack_firmware_written": false,
+  "radio_firmware_written": false,
+  "conducted_power_measured": false,
+  "dual_radio_initialization_verified": true,
+  "radio_a": {
+    "device": 3,
+    "hardware": 34,
+    "firmware": "1.3",
+    "preset": "LONG_FAST"
+  },
+  "radio_b": {
+    "device": 3,
+    "hardware": 34,
+    "firmware": "1.3",
+    "preset": "MEDIUM_FAST"
+  },
+  "successful_boot_logs": [
+    "nomad-final-boot.log",
+    "nomad-reboot-check.log"
+  ],
+  "reboot_verified": true,
+  "usb_api_verified": true,
+  "usb_api_report": "nomad-usb-api.json",
+  "ble_advertising_verified": true,
+  "ble_name": "Meshtastic_4434",
+  "ble_scan_report": "nomad-ble-after-reboot.json",
+  "region": "UNSET",
+  "rf_tx_inhibited_by_policy": true,
+  "lab_firmware_flashed": false,
+  "dual_rx_verified_on_hardware": false,
+  "real_ack_exchange_verified": false,
+  "fan_physical_operation_verified": false,
+  "rgb_pairing_visual_verified": false,
+  "pairing_authentication_verified": false,
+  "high_baud_backup_failed_safely_before_writing": true,
+  "reliable_programming_baud": 115200
+}

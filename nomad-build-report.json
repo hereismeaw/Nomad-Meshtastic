@@ -1,0 +1,266 @@
+{
+  "source_revisions": {
+    "meshtastic": "9bcf0f776edabb3b2447db323323cf2c49835452",
+    "expresslrs": "caf1ccd8199f22585dca727d75ad4f5e3c4c698d",
+    "targets": "7154fd86b704d4b521b9ad748815ec6dce8efecb"
+  },
+  "modified_firmware_files": [
+    "src/main.cpp",
+    "src/mesh/Channels.cpp",
+    "src/mesh/Channels.h",
+    "src/mesh/LR11x0Interface.cpp",
+    "src/mesh/MeshModule.h",
+    "src/mesh/NextHopRouter.cpp",
+    "src/mesh/NextHopRouter.h",
+    "src/mesh/NomadDualRadio.cpp",
+    "src/mesh/NomadDualRadio.h",
+    "src/mesh/NomadRadioPolicy.h",
+    "src/mesh/NomadRfFrontend.h",
+    "src/mesh/RadioInterface.cpp",
+    "src/mesh/RadioInterface.h",
+    "src/mesh/RadioLibInterface.cpp",
+    "src/mesh/RadioLibInterface.h",
+    "src/mesh/ReliableRouter.cpp",
+    "src/mesh/Router.cpp",
+    "test/test_nomad_policy/test_main.cpp",
+    "variants/esp32/radiomaster_nomad/platformio.ini",
+    "variants/esp32/radiomaster_nomad/rfswitch.h",
+    "variants/esp32/radiomaster_nomad/variant.h"
+  ],
+  "source_patch": {
+    "path": "nomad-changes.patch",
+    "sha256": "2771ad04f3e7aaecbf9006cbc0c796da62f0a708792ee39202e197d5dce0012e"
+  },
+  "builds": {
+    "radiomaster-nomad": {
+      "status": "passed",
+      "log": "nomad-ship-build.log",
+      "usage": {
+        "static_ram": {
+          "used_bytes": 98772,
+          "maximum_bytes": 327680
+        },
+        "application_flash": {
+          "used_bytes": 1809755,
+          "maximum_bytes": 2424832
+        }
+      },
+      "artifacts": [
+        {
+          "path": "artifacts/radiomaster-nomad/bootloader.bin",
+          "bytes": 23520,
+          "sha256": "f7ec7b7d9026e12dd3616bf79cee0e78974a2605afbc2863fcfb0ac9aeb159d4"
+        },
+        {
+          "path": "artifacts/radiomaster-nomad/firmware-radiomaster-nomad-2.8.3.9bcf0f7.bin",
+          "bytes": 1810256,
+          "sha256": "1d40eb33574db09f624cd925735662052defbd1f7c72d36111acc5595f7bb482"
+        },
+        {
+          "path": "artifacts/radiomaster-nomad/firmware-radiomaster-nomad-2.8.3.9bcf0f7.elf",
+          "bytes": 35645120,
+          "sha256": "e4eca9608fb8ea8291188e200652164b24a0c1cacfa2d4d606893d70eb279a07"
+        },
+        {
+          "path": "artifacts/radiomaster-nomad/firmware-radiomaster-nomad-2.8.3.9bcf0f7.factory.bin",
+          "bytes": 1875792,
+          "sha256": "62a20a361e7a85e8f4cae7c1ddc76c50f88f5c3d1b34b25947d64962dd5913f4"
+        },
+        {
+          "path": "artifacts/radiomaster-nomad/firmware-radiomaster-nomad-2.8.3.9bcf0f7.mt.json",
+          "bytes": 1883,
+          "sha256": "0ae03a110b08d9d642cb3943e929627342be0a95479e983be84c412b9143cb6c"
+        },
+        {
+          "path": "artifacts/radiomaster-nomad/littlefs-radiomaster-nomad-2.8.3.9bcf0f7.bin",
+          "bytes": 1048576,
+          "sha256": "c7f22cd345c7c5cf428092eef4f0927d0ee7d1f17c9486524023ca0b4e8e71f2"
+        },
+        {
+          "path": "artifacts/radiomaster-nomad/partitions.bin",
+          "bytes": 3072,
+          "sha256": "58a783124e62fdca4ee0aace491c4acd4594d93c2578fb49fced91598c42ab68"
+        }
+      ]
+    },
+    "radiomaster-nomad-rf-lab": {
+      "status": "passed",
+      "log": "nomad-lab-ship-build.log",
+      "usage": {
+        "static_ram": {
+          "used_bytes": 98772,
+          "maximum_bytes": 327680
+        },
+        "application_flash": {
+          "used_bytes": 1810183,
+          "maximum_bytes": 2424832
+        }
+      },
+      "artifacts": [
+        {
+          "path": "artifacts/radiomaster-nomad-rf-lab/bootloader.bin",
+          "bytes": 23520,
+          "sha256": "f7ec7b7d9026e12dd3616bf79cee0e78974a2605afbc2863fcfb0ac9aeb159d4"
+        },
+        {
+          "path": "artifacts/radiomaster-nomad-rf-lab/firmware-radiomaster-nomad-rf-lab-2.8.3.9bcf0f7.bin",
+          "bytes": 1810688,
+          "sha256": "eaba0e3f53f0b809a5bd7b66a43661440e1d9bec690313ae411b80cefe06fd7f"
+        },
+        {
+          "path": "artifacts/radiomaster-nomad-rf-lab/firmware-radiomaster-nomad-rf-lab-2.8.3.9bcf0f7.elf",
+          "bytes": 35650988,
+          "sha256": "ac42a7d11a87ccdfbb2c6745815e6bc4626afb5b48a36429b2abdbf42a4c83aa"
+        },
+        {
+          "path": "artifacts/radiomaster-nomad-rf-lab/firmware-radiomaster-nomad-rf-lab-2.8.3.9bcf0f7.factory.bin",
+          "bytes": 1876224,
+          "sha256": "c3f7fdfdd14cbedc530fe8734cf03cb295ee4d129853246216b3b0687c7454c7"
+        },
+        {
+          "path": "artifacts/radiomaster-nomad-rf-lab/firmware-radiomaster-nomad-rf-lab-2.8.3.9bcf0f7.mt.json",
+          "bytes": 1925,
+          "sha256": "664ee68d4c5f4091b399cdd4d5fe0af51c7db370c152e78485b9a064e8c3bf8e"
+        },
+        {
+          "path": "artifacts/radiomaster-nomad-rf-lab/littlefs-radiomaster-nomad-rf-lab-2.8.3.9bcf0f7.bin",
+          "bytes": 1048576,
+          "sha256": "c7f22cd345c7c5cf428092eef4f0927d0ee7d1f17c9486524023ca0b4e8e71f2"
+        },
+        {
+          "path": "artifacts/radiomaster-nomad-rf-lab/partitions.bin",
+          "bytes": 3072,
+          "sha256": "58a783124e62fdca4ee0aace491c4acd4594d93c2578fb49fced91598c42ab68"
+        }
+      ]
+    },
+    "tlora-v2-1-1_8": {
+      "status": "passed",
+      "log": "regression-esp32-build.log",
+      "usage": {
+        "static_ram": {
+          "used_bytes": 108868,
+          "maximum_bytes": 327680
+        },
+        "application_flash": {
+          "used_bytes": 2019571,
+          "maximum_bytes": 2424832
+        }
+      },
+      "artifacts": [
+        {
+          "path": "artifacts/tlora-v2-1-1_8/bootloader.bin",
+          "bytes": 23520,
+          "sha256": "f7ec7b7d9026e12dd3616bf79cee0e78974a2605afbc2863fcfb0ac9aeb159d4"
+        },
+        {
+          "path": "artifacts/tlora-v2-1-1_8/firmware-tlora-v2-1-1_8-2.8.3.9bcf0f7.bin",
+          "bytes": 2020080,
+          "sha256": "ae3b7c2e09759dcf0f16f6654a30ce5aa51cd9308c7a4d89182fd2d0f3f2c4f2"
+        },
+        {
+          "path": "artifacts/tlora-v2-1-1_8/firmware-tlora-v2-1-1_8-2.8.3.9bcf0f7.elf",
+          "bytes": 39820328,
+          "sha256": "38ab15db76e825c85813f60ec5d724fbe2962dee44e7b709c852b9a951ce7ef1"
+        },
+        {
+          "path": "artifacts/tlora-v2-1-1_8/firmware-tlora-v2-1-1_8-2.8.3.9bcf0f7.factory.bin",
+          "bytes": 2085616,
+          "sha256": "044d1651cf02330f82b0ddfafb8fc3106dee25df40533355526ddaf48fd46ae4"
+        },
+        {
+          "path": "artifacts/tlora-v2-1-1_8/firmware-tlora-v2-1-1_8-2.8.3.9bcf0f7.mt.json",
+          "bytes": 2044,
+          "sha256": "5c1a46fed58fc4783b7a504259f8c15f6fb91bcff010a0ee871ef65fb94f49b5"
+        },
+        {
+          "path": "artifacts/tlora-v2-1-1_8/littlefs-tlora-v2-1-1_8-2.8.3.9bcf0f7.bin",
+          "bytes": 1048576,
+          "sha256": "c7f22cd345c7c5cf428092eef4f0927d0ee7d1f17c9486524023ca0b4e8e71f2"
+        },
+        {
+          "path": "artifacts/tlora-v2-1-1_8/partitions.bin",
+          "bytes": 3072,
+          "sha256": "58a783124e62fdca4ee0aace491c4acd4594d93c2578fb49fced91598c42ab68"
+        }
+      ]
+    }
+  },
+  "tests": {
+    "test_radio": {
+      "environment": "coverage",
+      "cases_passed": 55,
+      "log": "regression-native-final.log",
+      "scope": "filtered"
+    },
+    "test_nomad_policy": {
+      "environment": "coverage",
+      "cases_passed": 1,
+      "log": "policy-native-final.log",
+      "scope": "filtered"
+    },
+    "calibration_generator": {
+      "cases_passed": 6,
+      "log": "calibration-tests.log"
+    }
+  },
+  "hardware": {
+    "observed_port": "COM3",
+    "usb_bridge": "Silicon Labs CP210x",
+    "flashed": true,
+    "original_flash_backed_up": true,
+    "conducted_power_measured": false,
+    "backpack_firmware_written": false,
+    "dual_rx_verified_on_hardware": false,
+    "main_chip": "ESP32-PICO-D4 rev 1.1",
+    "main_flash_bytes": 4194304,
+    "installed_environment": "radiomaster-nomad",
+    "firmware_version": "2.8.3.9bcf0f7",
+    "application_sha256": "1d40eb33574db09f624cd925735662052defbd1f7c72d36111acc5595f7bb482",
+    "flash_hash_verified": true,
+    "flash_log": "nomad-final-app-flash.log",
+    "backup_path": "backups/nomad-20261105-161954/main-esp32-original.bin",
+    "backup_sha256": "5e561be875b716154eb595ace5dc1f7d2244a210a0a4d518289946919945dc1c",
+    "backup_app_checksum_and_validation_hash_valid": true,
+    "radio_firmware_written": false,
+    "dual_radio_initialization_verified": true,
+    "radio_a": {
+      "device": 3,
+      "hardware": 34,
+      "firmware": "1.3",
+      "preset": "LONG_FAST"
+    },
+    "radio_b": {
+      "device": 3,
+      "hardware": 34,
+      "firmware": "1.3",
+      "preset": "MEDIUM_FAST"
+    },
+    "successful_boot_logs": [
+      "nomad-final-boot.log",
+      "nomad-reboot-check.log"
+    ],
+    "reboot_verified": true,
+    "usb_api_verified": true,
+    "usb_api_report": "nomad-usb-api.json",
+    "ble_advertising_verified": true,
+    "ble_name": "Meshtastic_4434",
+    "ble_scan_report": "nomad-ble-after-reboot.json",
+    "region": "UNSET",
+    "rf_tx_inhibited_by_policy": true,
+    "lab_firmware_flashed": false,
+    "real_ack_exchange_verified": false,
+    "fan_physical_operation_verified": false,
+    "rgb_pairing_visual_verified": false,
+    "pairing_authentication_verified": false,
+    "high_baud_backup_failed_safely_before_writing": true,
+    "reliable_programming_baud": 115200
+  },
+  "limitations": [
+    "No per-unit measured calibration is shipped; RF TX remains inhibited without calibration and local enable.",
+    "No phone/serial endpoints for board-specific per-radio C++ configuration.",
+    "Experimental parallel TX, diversity and optional cross-preset bridging are not implemented.",
+    "Airtime enforcement remains shared and conservative; per-radio airtime ledgers are not implemented.",
+    "Real ACK exchanges, simultaneous reception, thermal behavior and RF isolation require bench validation."
+  ]
+}

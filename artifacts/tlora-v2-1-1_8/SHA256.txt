@@ -1,0 +1,7 @@
+f7ec7b7d9026e12dd3616bf79cee0e78974a2605afbc2863fcfb0ac9aeb159d4  bootloader.bin
+ae3b7c2e09759dcf0f16f6654a30ce5aa51cd9308c7a4d89182fd2d0f3f2c4f2  firmware-tlora-v2-1-1_8-2.8.3.9bcf0f7.bin
+38ab15db76e825c85813f60ec5d724fbe2962dee44e7b709c852b9a951ce7ef1  firmware-tlora-v2-1-1_8-2.8.3.9bcf0f7.elf
+044d1651cf02330f82b0ddfafb8fc3106dee25df40533355526ddaf48fd46ae4  firmware-tlora-v2-1-1_8-2.8.3.9bcf0f7.factory.bin
+5c1a46fed58fc4783b7a504259f8c15f6fb91bcff010a0ee871ef65fb94f49b5  firmware-tlora-v2-1-1_8-2.8.3.9bcf0f7.mt.json
+c7f22cd345c7c5cf428092eef4f0927d0ee7d1f17c9486524023ca0b4e8e71f2  littlefs-tlora-v2-1-1_8-2.8.3.9bcf0f7.bin
+58a783124e62fdca4ee0aace491c4acd4594d93c2578fb49fced91598c42ab68  partitions.bin

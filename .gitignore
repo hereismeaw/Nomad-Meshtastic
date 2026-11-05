@@ -1,0 +1,34 @@
+# Local tooling
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.python-version
+
+# Nested firmware git / build trees (vendored as source)
+firmware/.git/
+firmware/.pio/
+firmware/managed_components/
+firmware/.vscode/
+firmware/.dummy/
+firmware/.claude/
+firmware-tests/
+
+# Secrets and original factory dumps — never publish
+backups/
+
+# Build noise
+*.log
+*.exe
+*.tar
+*.elf
+*.o
+*.a
+.pio/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+Desktop.ini
