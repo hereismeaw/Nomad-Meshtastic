@@ -10,8 +10,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 FIRMWARE = ROOT / "firmware"
 BUILDS = {
-    "radiomaster-nomad": "nomad-ship-build.log",
-    "radiomaster-nomad-rf-lab": "nomad-lab-ship-build.log",
+    "radiomaster-nomad": "nomad-rgb-build.log",
+    "radiomaster-nomad-rf-lab": "nomad-rgb-lab-build.log",
     "tlora-v2-1-1_8": "regression-esp32-build.log",
 }
 
@@ -51,11 +51,26 @@ def main():
     if not count or not re.search(r"^OK$", calibration, re.MULTILINE):
         raise RuntimeError("Calibration generator tests have not passed")
     tests["calibration_generator"] = {"cases_passed": int(count[1]), "log": "calibration-tests.log"}
+    status_log = (ROOT / "nomad-rgb-policy-tests.log").read_text(encoding="utf-8", errors="replace")
+    if "PASS" not in status_log:
+        raise RuntimeError("Status-light policy tests have not passed")
+    tests["nomad_status"] = {"environment": "Linux standalone, ASan/UBSan", "log": "nomad-rgb-policy-tests.log",
+                             "scope": "boot timing, timer wrap, Bluetooth and radio indication priority"}
 
     for environment in BUILDS:
         source = FIRMWARE / ".pio" / "build" / environment
         destination = ROOT / "artifacts" / environment
         destination.mkdir(parents=True, exist_ok=True)
+        if not source.exists() and environment == "tlora-v2-1-1_8":
+            previous = json.loads((ROOT / "nomad-build-report.json").read_text(encoding="utf-8"))
+            packaged = previous["builds"][environment]["artifacts"]
+            for item in packaged:
+                path = ROOT / item["path"]
+                if not path.is_file() or path.stat().st_size != item["bytes"] or digest(path) != item["sha256"]:
+                    raise RuntimeError(f"Previous regression artifact missing or changed: {path}")
+            builds[environment].update(artifacts=packaged, reused_previous_artifacts=True,
+                                       scope="Previous regression build; not rebuilt for Nomad-only status-light changes")
+            continue
         packaged = []
         for path in sorted(source.iterdir()):
             if path.is_file() and (path.suffix in (".bin", ".elf") or path.name.endswith(".mt.json")):

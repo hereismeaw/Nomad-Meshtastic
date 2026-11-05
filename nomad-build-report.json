@@ -16,6 +16,7 @@
     "src/mesh/NomadDualRadio.h",
     "src/mesh/NomadRadioPolicy.h",
     "src/mesh/NomadRfFrontend.h",
+    "src/mesh/NomadStatusPolicy.h",
     "src/mesh/RadioInterface.cpp",
     "src/mesh/RadioInterface.h",
     "src/mesh/RadioLibInterface.cpp",
@@ -23,25 +24,26 @@
     "src/mesh/ReliableRouter.cpp",
     "src/mesh/Router.cpp",
     "test/test_nomad_policy/test_main.cpp",
+    "test/test_nomad_status/test_main.cpp",
     "variants/esp32/radiomaster_nomad/platformio.ini",
     "variants/esp32/radiomaster_nomad/rfswitch.h",
     "variants/esp32/radiomaster_nomad/variant.h"
   ],
   "source_patch": {
     "path": "nomad-changes.patch",
-    "sha256": "2771ad04f3e7aaecbf9006cbc0c796da62f0a708792ee39202e197d5dce0012e"
+    "sha256": "69b8ed80f74fd9ad5565b5caf9cc2ad61365f1d67adb984fd645cc50f2a3e5f9"
   },
   "builds": {
     "radiomaster-nomad": {
       "status": "passed",
-      "log": "nomad-ship-build.log",
+      "log": "nomad-rgb-build.log",
       "usage": {
         "static_ram": {
           "used_bytes": 98772,
           "maximum_bytes": 327680
         },
         "application_flash": {
-          "used_bytes": 1809755,
+          "used_bytes": 1810419,
           "maximum_bytes": 2424832
         }
       },
@@ -53,23 +55,23 @@
         },
         {
           "path": "artifacts/radiomaster-nomad/firmware-radiomaster-nomad-2.8.3.9bcf0f7.bin",
-          "bytes": 1810256,
-          "sha256": "1d40eb33574db09f624cd925735662052defbd1f7c72d36111acc5595f7bb482"
+          "bytes": 1810928,
+          "sha256": "cbe6de792be10046b3a7e7e005283294a3851484aa88ff428a184df62c7ae4fa"
         },
         {
           "path": "artifacts/radiomaster-nomad/firmware-radiomaster-nomad-2.8.3.9bcf0f7.elf",
-          "bytes": 35645120,
-          "sha256": "e4eca9608fb8ea8291188e200652164b24a0c1cacfa2d4d606893d70eb279a07"
+          "bytes": 35650004,
+          "sha256": "12974f00e6087908fe2c40a09c7910dfdccc1250b3600eb88fe6828a853f697b"
         },
         {
           "path": "artifacts/radiomaster-nomad/firmware-radiomaster-nomad-2.8.3.9bcf0f7.factory.bin",
-          "bytes": 1875792,
-          "sha256": "62a20a361e7a85e8f4cae7c1ddc76c50f88f5c3d1b34b25947d64962dd5913f4"
+          "bytes": 1876464,
+          "sha256": "25efced46f8544ba6788ebe16d269a433b3e9ba356f59cc9381cd1a7053de35c"
         },
         {
           "path": "artifacts/radiomaster-nomad/firmware-radiomaster-nomad-2.8.3.9bcf0f7.mt.json",
           "bytes": 1883,
-          "sha256": "0ae03a110b08d9d642cb3943e929627342be0a95479e983be84c412b9143cb6c"
+          "sha256": "dabdec9b4b5370db6e81761987c0087390b2a110645427495bf4a619517d526a"
         },
         {
           "path": "artifacts/radiomaster-nomad/littlefs-radiomaster-nomad-2.8.3.9bcf0f7.bin",
@@ -85,14 +87,14 @@
     },
     "radiomaster-nomad-rf-lab": {
       "status": "passed",
-      "log": "nomad-lab-ship-build.log",
+      "log": "nomad-rgb-lab-build.log",
       "usage": {
         "static_ram": {
           "used_bytes": 98772,
           "maximum_bytes": 327680
         },
         "application_flash": {
-          "used_bytes": 1810183,
+          "used_bytes": 1810863,
           "maximum_bytes": 2424832
         }
       },
@@ -104,23 +106,23 @@
         },
         {
           "path": "artifacts/radiomaster-nomad-rf-lab/firmware-radiomaster-nomad-rf-lab-2.8.3.9bcf0f7.bin",
-          "bytes": 1810688,
-          "sha256": "eaba0e3f53f0b809a5bd7b66a43661440e1d9bec690313ae411b80cefe06fd7f"
+          "bytes": 1811360,
+          "sha256": "f3ab48e682dfaac2978e4ff12bbdadc8cfca9a4e2be0f5bb8fdc3909f3f5fefa"
         },
         {
           "path": "artifacts/radiomaster-nomad-rf-lab/firmware-radiomaster-nomad-rf-lab-2.8.3.9bcf0f7.elf",
-          "bytes": 35650988,
-          "sha256": "ac42a7d11a87ccdfbb2c6745815e6bc4626afb5b48a36429b2abdbf42a4c83aa"
+          "bytes": 35655880,
+          "sha256": "c19ed6e3c964a1dcb9a1db7caa4be9dc9287f5f68c6fd67f187d87afe334f8d6"
         },
         {
           "path": "artifacts/radiomaster-nomad-rf-lab/firmware-radiomaster-nomad-rf-lab-2.8.3.9bcf0f7.factory.bin",
-          "bytes": 1876224,
-          "sha256": "c3f7fdfdd14cbedc530fe8734cf03cb295ee4d129853246216b3b0687c7454c7"
+          "bytes": 1876896,
+          "sha256": "4b61da8f1eb0bfd1c95a90eabdc13d688fa43fab23ee284faf7b54221be216ee"
         },
         {
           "path": "artifacts/radiomaster-nomad-rf-lab/firmware-radiomaster-nomad-rf-lab-2.8.3.9bcf0f7.mt.json",
           "bytes": 1925,
-          "sha256": "664ee68d4c5f4091b399cdd4d5fe0af51c7db370c152e78485b9a064e8c3bf8e"
+          "sha256": "f86978ad941e8cedeb88cf8835349947cfc3b9374fe4ff358d48a1c0d7ea0e3c"
         },
         {
           "path": "artifacts/radiomaster-nomad-rf-lab/littlefs-radiomaster-nomad-rf-lab-2.8.3.9bcf0f7.bin",
@@ -183,7 +185,9 @@
           "bytes": 3072,
           "sha256": "58a783124e62fdca4ee0aace491c4acd4594d93c2578fb49fced91598c42ab68"
         }
-      ]
+      ],
+      "reused_previous_artifacts": true,
+      "scope": "Previous regression build; not rebuilt for Nomad-only status-light changes"
     }
   },
   "tests": {
@@ -202,6 +206,11 @@
     "calibration_generator": {
       "cases_passed": 6,
       "log": "calibration-tests.log"
+    },
+    "nomad_status": {
+      "environment": "Linux standalone, ASan/UBSan",
+      "log": "nomad-rgb-policy-tests.log",
+      "scope": "boot timing, timer wrap, Bluetooth and radio indication priority"
     }
   },
   "hardware": {
@@ -216,9 +225,9 @@
     "main_flash_bytes": 4194304,
     "installed_environment": "radiomaster-nomad",
     "firmware_version": "2.8.3.9bcf0f7",
-    "application_sha256": "1d40eb33574db09f624cd925735662052defbd1f7c72d36111acc5595f7bb482",
+    "application_sha256": "cbe6de792be10046b3a7e7e005283294a3851484aa88ff428a184df62c7ae4fa",
     "flash_hash_verified": true,
-    "flash_log": "nomad-final-app-flash.log",
+    "flash_log": "nomad-rgb-flash.log",
     "backup_path": "backups/nomad-20261105-161954/main-esp32-original.bin",
     "backup_sha256": "5e561be875b716154eb595ace5dc1f7d2244a210a0a4d518289946919945dc1c",
     "backup_app_checksum_and_validation_hash_valid": true,
@@ -238,7 +247,8 @@
     },
     "successful_boot_logs": [
       "nomad-final-boot.log",
-      "nomad-reboot-check.log"
+      "nomad-reboot-check.log",
+      "nomad-rgb-boot.log"
     ],
     "reboot_verified": true,
     "usb_api_verified": true,
@@ -246,15 +256,29 @@
     "ble_advertising_verified": true,
     "ble_name": "Meshtastic_4434",
     "ble_scan_report": "nomad-ble-after-reboot.json",
-    "region": "UNSET",
+    "region": "TH",
     "rf_tx_inhibited_by_policy": true,
     "lab_firmware_flashed": false,
     "real_ack_exchange_verified": false,
-    "fan_physical_operation_verified": false,
+    "fan_physical_operation_verified": true,
     "rgb_pairing_visual_verified": false,
     "pairing_authentication_verified": false,
     "high_baud_backup_failed_safely_before_writing": true,
-    "reliable_programming_baud": 115200
+    "reliable_programming_baud": 115200,
+    "fan_verification_scope": "User confirmed short press of button 2 turns fan on; AUTO/OFF/persistence not physically verified.",
+    "rgb_status_policy_tests": "nomad-rgb-policy-tests.log (standalone Linux ASan/UBSan)",
+    "ble_phone_connection_evidence": "docs/nomad-ble-connected.png",
+    "region_update_performed": false,
+    "region_verification": "Existing region 12 / TH observed in nomad-rgb-boot.log after app-only update",
+    "ble_connection_verified": true,
+    "ble_connection_log": "nomad-rgb-boot.log",
+    "rgb_boot_sequence_logged": true,
+    "rgb_boot_log": "nomad-rgb-boot.log",
+    "installed_node_name": "Nomad Test",
+    "installed_node_id": "!39093466",
+    "rgb_boot_visual_verified": true,
+    "rgb_ble_connected_visual_verified": true,
+    "rgb_visual_evidence": "User confirmed both LEDs show red/green/blue at boot and cyan when Bluetooth connects."
   },
   "limitations": [
     "No per-unit measured calibration is shipped; RF TX remains inhibited without calibration and local enable.",

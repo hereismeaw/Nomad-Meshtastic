@@ -3,6 +3,7 @@
 #include "LR1121Interface.h"
 #include "NomadRadioPolicy.h"
 #include "NomadRfFrontend.h"
+#include "NomadStatusPolicy.h"
 #include "RadioTxHook.h"
 #include "concurrency/OSThread.h"
 #include "configuration.h"
@@ -70,6 +71,10 @@ class NomadDualRadioManager : public RadioInterface, private concurrency::OSThre
     std::array<std::unique_ptr<NomadRadioContext>, 2> radios;
     Adafruit_NeoPixel pixels{2, NOMAD_RGB_PIN, NEO_GRB + NEO_KHZ800};
     uint32_t rxCounts[2] = {}, badCounts[2] = {}, activityMs[2] = {};
+    uint32_t activityColors[2] = {};
+    nomad::StatusLights statusLights;
+    nomad::BluetoothLight lastBluetoothLight = nomad::BluetoothLight::Off;
+    bool bootLightsLogged = false;
     uint32_t lastMaintenance = 0, lastTx = 0, buttonStart = 0;
     uint8_t fanMode = 0;
     bool buttonDown = false, fanRunning = false, longPressHandled = false;

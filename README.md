@@ -54,9 +54,9 @@ A node like that can listen on two meshes at once, originate on a chosen radio, 
 
 ## What is still honest about being unfinished
 
-- **RF TX is inhibited.** There is no shipped conducted-power calibration table. Region stays `UNSET` until you set a legal country.
+- **RF TX is inhibited.** There is no shipped conducted-power calibration table. Choose the operating region in the app; firmware updates preserve existing settings.
 - Simultaneous two-network RX/TX, ACK exchanges, and PDR have not been measured on a bench.
-- RGB LEDs are coded (GPIO22, two pixels) but **not fully working** on the hardware. Fan GPIO is implemented; physical confirmation still pending.
+- The user confirmed both-pixel RGB boot colors, cyan when Bluetooth connects, and manual fan ON. Fresh PIN-pairing blink, RF activity colors and automatic cooling still need physical checks.
 - Stock Meshtastic Android / iOS / Web still look like a **single** radio.
 
 Do not transmit at 30 dBm, or at all, until you have a region, a calibration, and a legal allocation.
@@ -152,7 +152,7 @@ Keep your local `backups/` directory **private**. Original dumps are gitignored 
 1. Boot the Nomad.
 2. Connect to **Meshtastic_4434** from the Meshtastic app.
 3. PIN: **123456**.
-4. Both RGB pixels blink blue while pairing.
+4. During a new PIN pairing, both RGB pixels are programmed to blink blue. An already bonded phone may reconnect without asking for the PIN.
 
 GPIO12 is fan / RF gate. It does not enter pairing mode.
 
@@ -160,14 +160,17 @@ GPIO12 is fan / RF gate. It does not enter pairing mode.
 
 ## Status lights
 
-Intended patterns below. On the current unit the RGB strip is **not fully working**.
+The user confirmed boot red/green/blue and connected cyan. Pairing blink and RF activity colors remain pending physical checks.
 
 | Pattern | Meaning |
 | --- | --- |
 | Green pulse (~150 ms) | Valid RX on that radio |
 | Red | TX, bad frame, or radio init fault |
 | Blue blink (both pixels) | BLE pairing |
-| Off | Idle |
+| Red -> green -> blue at startup | Both-pixel self-test, 400 ms per color |
+| Slow blue blink | Bluetooth waiting for a connection |
+| Steady dim cyan | Bluetooth connected, radio idle |
+| Dim white pulse every 2 s | Bluetooth off, radio idle |
 
 ---
 

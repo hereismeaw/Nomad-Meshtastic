@@ -10,10 +10,13 @@ firmware 1.3. USB Meshtastic API reads work. Windows detects the live BLE servic
 as **Meshtastic_4434**; the configured pairing PIN is **123456**.
 
 **RF TX remains inhibited.** No measured PA calibration table is shipped. The
-region remains UNSET pending the operating country. Actual simultaneous packet
-reception, RF transmission/ACK exchanges, optical LED behavior and physical fan
-operation are not claimed verified. This is experimental bring-up firmware and
-does not fulfill every advanced feature in the original dual-radio specification.
+existing Thailand region is preserved and verified in `nomad-rgb-boot.log`.
+The user confirmed that button 2 turns the fan on. Actual simultaneous packet
+reception, RF transmission/ACK exchanges,
+PIN-pairing blink, RF activity colors and automatic cooling are not claimed verified.
+The user confirmed both-pixel red/green/blue boot colors and cyan when BLE connects.
+This is experimental bring-up firmware and does not fulfill every advanced feature
+in the original dual-radio specification.
 
 ## Controls
 
@@ -26,7 +29,10 @@ does not fulfill every advanced feature in the original dual-radio specification
 | Green pulse | Valid received packet, 150 ms |
 | Red | Transmitting, bad received frame or radio initialization fault |
 | Blue blinking on both pixels | Bluetooth pairing status; 250 ms on/off |
-| Pixels off | Idle |
+| Both red -> green -> blue at boot | 400 ms per color, then 200 ms off |
+| Slow blue blink | Bluetooth waiting, 250 ms on / 750 ms off |
+| Steady dim cyan | Bluetooth connected, radio idle |
+| Dim white heartbeat | Bluetooth off, healthy radio idle |
 
 Fan GPIO2 starts before a permitted transmission and runs for 60 seconds after
 TX. Cooling overrides manual OFF. AUTO is otherwise off at idle. No temperature
@@ -65,11 +71,16 @@ verified backup remains intact.
 
 | Environment | Result | Static RAM | App flash | Log |
 | --- | --- | --- | --- | --- |
-| `radiomaster-nomad` | PASS | 98,772 B | 1,809,755 B | `nomad-ship-build.log` |
-| `radiomaster-nomad-rf-lab` | PASS | 98,772 B | 1,810,183 B | `nomad-lab-ship-build.log` |
+| `radiomaster-nomad` | PASS | 98,772 B | 1,810,419 B | `nomad-rgb-build.log` |
+| `radiomaster-nomad-rf-lab` | PASS | 98,772 B | 1,810,863 B | `nomad-rgb-lab-build.log` |
 | `tlora-v2-1-1_8` | PASS | 108,868 B | 2,019,571 B | `regression-esp32-build.log` |
 
 RAM values are static allocations, not runtime peak heap/stack measurements.
+The existing-board regression result is from the previous build; its saved
+artifacts were verified against their recorded SHA256 hashes and reused.
+The RGB status policy additionally passes standalone Linux ASan/UBSan checks
+for delayed boot, timer wrap and Bluetooth/radio indication priority
+(`nomad-rgb-policy-tests.log`). These checks do not verify emitted light.
 Packaged images, ELF files, manifests and SHA256 files are under
 `artifacts/<environment>/`. `nomad-build-report.json` records exact paths, hashes,
 source revisions, modified files and the hardware evidence.
@@ -195,7 +206,7 @@ Bench validation still required:
    the region and stock peers permit; automatic overlap correction is not implemented.
 2. Receive numbered messages from stock LONG_FAST and MEDIUM_FAST peers at the
    same time. Record origin, PDR, RSSI/SNR, duplicate behavior and queue depths.
-3. Confirm fan-button persistence and blue pairing blink on the actual device.
+3. Confirm fresh PIN-pairing blink, per-radio RF activity colors, fan-button persistence and automatic cooling. Boot RGB colors, connected cyan and manual fan ON are user-confirmed.
 4. With suitable rated loads, attenuators and a calibrated analyzer/power meter,
    measure each radio/band/DAC/drive step from low power upward. Record losses,
    instrument provenance, voltage, current and temperature. Never connect 1 W

@@ -7,19 +7,19 @@
   "files": [
     {
       "name": "firmware-radiomaster-nomad-rf-lab-2.8.3.9bcf0f7.elf",
-      "md5": "0fdc18143648460c5b50676578bc8476",
-      "bytes": 35650988
+      "md5": "913089f1f1cb25af7d1f650df0252979",
+      "bytes": 35655880
     },
     {
       "name": "firmware-radiomaster-nomad-rf-lab-2.8.3.9bcf0f7.bin",
-      "md5": "552214aab3baced8c71fe700580d902b",
-      "bytes": 1810688,
+      "md5": "e87058924ed950fe1ff677b613e47d3e",
+      "bytes": 1811360,
       "part_name": "app0"
     },
     {
       "name": "firmware-radiomaster-nomad-rf-lab-2.8.3.9bcf0f7.factory.bin",
-      "md5": "625cbfc75e77fbc33bd87d50dcfaa0af",
-      "bytes": 1876224
+      "md5": "6faddfb4b183b0da9f3addd25aa08109",
+      "bytes": 1876896
     },
     {
       "name": "littlefs-radiomaster-nomad-rf-lab-2.8.3.9bcf0f7.bin",
@@ -31,7 +31,7 @@
   "has_mui": false,
   "has_inkhud": false,
   "ram_bytes": 98772,
-  "flash_bytes": 1835362,
+  "flash_bytes": 1836042,
   "part": [
     {
       "name": "nvs",

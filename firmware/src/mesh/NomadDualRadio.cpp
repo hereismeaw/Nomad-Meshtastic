@@ -8,6 +8,9 @@
 #include "NomadDualRadio.h"
 #include "Throttle.h"
 #include "UptimeClock.h"
+#if !MESHTASTIC_EXCLUDE_BLUETOOTH
+#include "main.h"
+#endif
 #include <Preferences.h>
 
 static NomadDualRadioManager *manager;
@@ -366,36 +369,62 @@ bool NomadDualRadioManager::reconfigure()
 int32_t NomadDualRadioManager::runOnce()
 {
     const uint32_t now = Time::getMillis();
-    const bool pairing =
-        bluetoothStatus && bluetoothStatus->getConnectionState() == meshtastic::BluetoothStatus::ConnectionState::PAIRING;
+    nomad::BluetoothLight bluetooth = nomad::BluetoothLight::Off;
+#if !MESHTASTIC_EXCLUDE_BLUETOOTH
+    if (config.bluetooth.enabled && nimbleBluetooth && nimbleBluetooth->isActive() && !nimbleBluetooth->isDeInit) {
+        bluetooth = nomad::BluetoothLight::Waiting;
+        if (bluetoothStatus) {
+            const auto state = bluetoothStatus->getConnectionState();
+            if (state == meshtastic::BluetoothStatus::ConnectionState::PAIRING)
+                bluetooth = nomad::BluetoothLight::Pairing;
+            else if (state == meshtastic::BluetoothStatus::ConnectionState::CONNECTED)
+                bluetooth = nomad::BluetoothLight::Connected;
+        }
+    }
+#endif
+    if (bluetooth != lastBluetoothLight) {
+        static const char *names[] = {"off", "waiting for connection", "pairing", "connected"};
+        LOG_INFO("Nomad RGB Bluetooth: %s", names[static_cast<uint8_t>(bluetooth)]);
+        lastBluetoothLight = bluetooth;
+    }
+    if (!statusLights.hasStarted())
+        LOG_INFO("Nomad RGB self-test: 2 GRB pixels on GPIO22, red/green/blue 400ms each");
     bool transmitting = false;
+    bool pixelsChanged = false;
     for (uint8_t i = 0; i < 2; ++i) {
         auto &radio = radios[i];
         if (radio->healthy && !radio->statistics().healthy)
             radio->healthy = false;
-        uint32_t color = 0;
-        if (!radio->healthy) {
-            color = 0x200000;
-        } else {
+        uint32_t activity = 0;
+        if (radio->healthy) {
             radio->pollMissedIrqs();
             if (radio->rxGood != rxCounts[i] || radio->rxBad != badCounts[i]) {
                 activityMs[i] = now;
-                color = radio->rxBad != badCounts[i] ? 0x200000 : 0x002000;
+                activityColors[i] = radio->rxBad != badCounts[i] ? nomad::StatusLights::RED : nomad::StatusLights::GREEN;
                 rxCounts[i] = radio->rxGood;
                 badCounts[i] = radio->rxBad;
-            } else if (activityMs[i] && Throttle::isWithinTimespanMs(activityMs[i], 150)) {
-                color = pixels.getPixelColor(i);
             }
-            if (radio->isSending()) {
-                color = 0x200000;
-                transmitting = true;
+            if (activityColors[i]) {
+                if (Throttle::isWithinTimespanMs(activityMs[i], 150))
+                    activity = activityColors[i];
+                else
+                    activityColors[i] = 0;
             }
         }
-        if (pairing)
-            color = (now / 250) % 2 ? 0x000020 : 0;
-        pixels.setPixelColor(i, color);
+        const bool sending = radio->healthy && radio->isSending();
+        transmitting |= sending;
+        const auto color = statusLights.color(now, bluetooth, radio->healthy, sending, activity);
+        if (pixels.getPixelColor(i) != color) {
+            pixels.setPixelColor(i, color);
+            pixelsChanged = true;
+        }
     }
-    pixels.show();
+    if (pixelsChanged)
+        pixels.show();
+    if (!bootLightsLogged && statusLights.bootComplete(now)) {
+        LOG_INFO("Nomad RGB self-test complete; waiting=slow blue, pairing=fast blue, connected=cyan");
+        bootLightsLogged = true;
+    }
     RadioLibInterface::instance = primary();
     if (transmitting)
         lastTx = Time::skipZero(now);
